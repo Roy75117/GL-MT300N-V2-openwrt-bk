@@ -3,7 +3,7 @@
 ### This is the backup repo for openwrt([23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)) of GL.iNet GL-MT300N V2
 https://openwrt.org/toh/gl.inet/gl-mt300n_v2
 
-GL-MT300N-V2 is a mini router based on MediaTek MT7628NN with 128MB dram, 16MB flash memory.
+GL-MT300N-V2 is a mini router based on MediaTek MT7628NN with 128MB dram and 16MB flash memory.
 
 GL-MT300N-V2 has 1 USB 2.0 port which can used for exroot, 1 switch button, 1 reset button and 3 LEDS.
 
