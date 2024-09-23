@@ -1,0 +1,12 @@
+. /lib/functions.sh 
+
+fix_network() {
+    uci delete repeater."$1".network
+}
+
+config_load repeater
+config_foreach fix_network network
+uci commit repeater
+
+ubus call repeater reload
+ubus call repeater disconnect

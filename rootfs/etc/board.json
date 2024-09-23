@@ -1,0 +1,72 @@
+{
+	"model": {
+		"id": "glinet,gl-mt300n-v2",
+		"name": "GL-MT300N-V2"
+	},
+	"led": {
+		"wifi_led": {
+			"name": "wifi",
+			"sysfs": "red:wlan",
+			"type": "netdev",
+			"device": "ra0",
+			"mode": "link tx rx"
+		},
+		"wan": {
+			"name": "wan",
+			"sysfs": "green:wan",
+			"trigger": "switch0",
+			"type": "switch",
+			"mode": "",
+			"port_mask": "0x1",
+			"speed_mask": ""
+		}
+	},
+	"system": {
+		"hostname": "GL-MT300N-V2"
+	},
+	"switch": {
+		"switch0": {
+			"enable": true,
+			"reset": true,
+			"ports": [
+				{
+					"num": 1,
+					"role": "lan"
+				},
+				{
+					"num": 0,
+					"role": "wan"
+				},
+				{
+					"num": 6,
+					"device": "eth0",
+					"need_tag": false,
+					"want_untag": false
+				}
+			],
+			"roles": [
+				{
+					"role": "lan",
+					"ports": "1 6t",
+					"device": "eth0.1"
+				},
+				{
+					"role": "wan",
+					"ports": "0 6t",
+					"device": "eth0.2"
+				}
+			]
+		}
+	},
+	"network": {
+		"lan": {
+			"device": "eth0.1",
+			"protocol": "static",
+			"ipaddr": "192.168.8.1"
+		},
+		"wan": {
+			"device": "eth0.2",
+			"protocol": "dhcp"
+		}
+	}
+}

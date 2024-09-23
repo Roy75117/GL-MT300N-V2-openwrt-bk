@@ -1,0 +1,11 @@
+Package: tree
+Version: 2.0.2-1
+Depends: libc, libgcc1
+Source: feeds/packages/utils/tree
+SourceName: tree
+Section: utils
+SourceDateEpoch: 1645582150
+Maintainer: Banglang Huang <banglang.huang@foxmail.com>
+Architecture: mipsel_24kc
+Installed-Size: 20334
+Description:  List contents of directories in a tree-like format

@@ -1,0 +1,10 @@
+Package: gl-sdk4-log
+Version: git-2023.066.07299-e61cf88-1
+Depends: libc, liblua5.1.5
+Source: feeds/glinet/gl-sdk4-log
+SourceName: gl-sdk4-log
+Section: base
+SourceDateEpoch: 1678154499
+Architecture: mipsel_24kc
+Installed-Size: 3182
+Description:  Log lib for gl

@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-edgerouter
+Version: git-2024.127.37465-acc1e17-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-edgerouter
+Source: feeds/glinet/gl-ui4.0/module/edgerouter
+SourceName: gl-sdk4-ui-edgerouter
+Section: base
+SourceDateEpoch: 1714991065
+Architecture: mipsel_24kc
+Installed-Size: 19436
+Description:  gl-sdk4-ui-edgerouter

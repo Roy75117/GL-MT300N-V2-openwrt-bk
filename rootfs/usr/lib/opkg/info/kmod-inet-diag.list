@@ -1,0 +1,5 @@
+/etc/modules.d/31-inet-diag
+/lib/modules/5.10.176/inet_diag.ko
+/lib/modules/5.10.176/tcp_diag.ko
+/lib/modules/5.10.176/raw_diag.ko
+/lib/modules/5.10.176/udp_diag.ko

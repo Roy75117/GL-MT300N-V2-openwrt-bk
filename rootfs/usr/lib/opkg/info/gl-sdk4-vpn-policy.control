@@ -1,0 +1,10 @@
+Package: gl-sdk4-vpn-policy
+Version: git-2024.081.34583-e689548-1
+Depends: libc, libuci-lua, iptables-mod-extra, sudo
+Source: feeds/glinet/gl-sdk4-vpn-policy
+SourceName: gl-sdk4-vpn-policy
+Section: base
+SourceDateEpoch: 1711013783
+Architecture: mipsel_24kc
+Installed-Size: 11591
+Description:  glinet SDK4 VPN policy module

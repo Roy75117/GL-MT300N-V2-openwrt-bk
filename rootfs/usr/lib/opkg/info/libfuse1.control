@@ -1,0 +1,18 @@
+Package: libfuse1
+Version: 2.9.9-2
+Depends: libc, kmod-fuse, libpthread
+Provides: libfuse
+Source: feeds/packages/utils/fuse
+SourceName: libfuse
+License: LGPL-2.1-only
+LicenseFiles: COPYING.LIB
+Section: libs
+SourceDateEpoch: 1641703099
+ABIVersion: 1
+CPE-ID: cpe:/a:fuse_project:fuse
+Architecture: mipsel_24kc
+Installed-Size: 57929
+Description:  FUSE (Filesystem in UserSpacE)
+ This package contains the FUSE shared libraries, needed by other programs.
+ - libfuse
+ - libulockmgr

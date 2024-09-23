@@ -1,0 +1,10 @@
+Package: gl-sdk4-logread
+Version: git-2024.050.04486-7a745c0-1
+Depends: libc, kmod-mtdoops, gl-sdk4-uci
+Source: feeds/glinet/gl-sdk4-logread
+SourceName: gl-sdk4-logread
+Section: base
+SourceDateEpoch: 1708305286
+Architecture: mipsel_24kc
+Installed-Size: 6320
+Description:  glinet SDK4 logread module

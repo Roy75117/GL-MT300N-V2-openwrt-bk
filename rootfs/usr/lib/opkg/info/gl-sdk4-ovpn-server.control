@@ -1,0 +1,10 @@
+Package: gl-sdk4-ovpn-server
+Version: git-2024.158.40978-3178f8b-1
+Depends: libc, gl-sdk4-utils, gl-sdk4-uci, jansson4, openvpn-openssl, openssl-util, resolveip, gl-sdk4-log
+Source: feeds/glinet/gl-sdk4-ovpn-server
+SourceName: gl-sdk4-ovpn-server
+Section: base
+SourceDateEpoch: 1717672978
+Architecture: mipsel_24kc
+Installed-Size: 17501
+Description:  Openvpn server endpoint api for gl-inet.

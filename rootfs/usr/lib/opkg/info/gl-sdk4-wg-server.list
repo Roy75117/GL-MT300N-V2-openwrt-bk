@@ -1,0 +1,4 @@
+/usr/lib/oui-httpd/rpc/wg-server.so
+/etc/config/wireguard_server
+/lib/netifd/proto/wgserver.sh
+/etc/wireguard/scripts/wgserver-route-update.sh

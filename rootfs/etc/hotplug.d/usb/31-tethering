@@ -1,0 +1,53 @@
+#!/bin/sh
+# shellcheck disable=SC2045
+# shellcheck disable=SC2039
+
+switch_devices() {
+    sleep 2
+    device_old=$(uci -q get network.tethering.ifname)
+    rm_device=$(lua -e 'local h=require("hardware") local d=h.platform_telething_whether_removing_usb0() print(d)')
+    for ifname in $(ls -1 /sys/class/net); do
+        if [ "$rm_device" != "$ifname" ]; then
+            if expr "$ifname" : ".*wwan"; then
+                continue
+            else
+                link=$(readlink "/sys/class/net/$ifname")
+                if expr "$link" : ".*usb"; then
+                    device=$ifname
+                fi
+            fi
+        fi
+    done
+
+    [ "$device_old" != "$device" ] && [ "$device" != "" ] && {
+        uci set network.tethering.ifname="$device"
+        uci commit network
+        /etc/init.d/network reload
+    }
+
+}
+
+[ "$ACTION" = add ] && [ "$DEVTYPE" = usb_device ] && {
+    usb_path=/sys"$DEVPATH/product"
+
+    iPhone=$(grep iPhone "$usb_path")
+    [ -n "$iPhone" ] && {
+        /etc/init.d/usbmuxd start
+    }
+    [ "$(uci -q get glconfig.general.inited)" = "1" ] && [ "$(uci -q get network.tethering.disabled)" != "1" ] && {
+        switch_devices &
+    }
+}
+
+[ "$ACTION" = remove ] && {
+    ifname=$(uci -q get network.tethering.ifname)
+    [ "$(ls /sys/class/net | grep -w "$ifname")" == "" ] && {
+        uci delete network.tethering.ifname
+        uci commit network
+        /etc/init.d/network reload
+    }
+}
+
+[ "$ACTION" = unbind ] && [ "$DEVTYPE" = usb_device ] && {
+    /etc/init.d/usbmuxd stop
+}

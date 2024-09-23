@@ -1,0 +1,15 @@
+Package: ethtool
+Version: 5.16-1
+Depends: libc
+Conflicts: ethtool-full
+Source: package/network/utils/ethtool
+SourceName: ethtool
+License: GPL-2.0
+LicenseFiles: COPYING
+Section: net
+SourceDateEpoch: 1643747102
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: mipsel_24kc
+Installed-Size: 33073
+Description:  ethtool is a small utility for examining and tuning your ethernet-based
+ network interface

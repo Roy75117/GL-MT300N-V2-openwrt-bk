@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-multiwan
+Version: git-2024.066.15334-b8639af-1
+Depends: libc
+Source: feeds/glinet/gl-ui4.0/module/multiwan
+SourceName: gl-sdk4-ui-multiwan
+Section: base
+SourceDateEpoch: 1709698534
+Architecture: mipsel_24kc
+Installed-Size: 24866
+Description:  gl-sdk4-ui-multiwan

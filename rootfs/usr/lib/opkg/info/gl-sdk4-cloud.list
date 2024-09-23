@@ -1,0 +1,7 @@
+/etc/init.d/gl-cloud
+/usr/bin/gl-cloud
+/etc/config/gl-cloud
+/etc/hotplug.d/iface/99-gl-cloud
+/usr/lib/oui-httpd/rpc/cloud
+/usr/local/lib/lua/5.3/gl/cloud.so
+/etc/uci-defaults/gl-cloud

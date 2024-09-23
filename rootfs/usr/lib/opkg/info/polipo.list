@@ -1,0 +1,4 @@
+/usr/sbin/polipo
+/etc/init.d/polipo
+/etc/config/polipo
+/etc/polipo/config

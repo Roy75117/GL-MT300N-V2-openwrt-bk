@@ -1,0 +1,13 @@
+Package: lua-eco-ubus
+Version: 2023-09-16-4e5411c8-1
+Depends: libc, lua-eco, libubus20220601
+Source: feeds/gl_feed_common/lua-eco
+SourceName: lua-eco-ubus
+License: MIT
+LicenseFiles: LICENSE
+Section: lang
+SourceDateEpoch: 1695002355
+Maintainer: Jianhui Zhao <zhaojh329@gmail.com>
+Architecture: mipsel_24kc
+Installed-Size: 7888
+Description:  ubus support for lua-eco

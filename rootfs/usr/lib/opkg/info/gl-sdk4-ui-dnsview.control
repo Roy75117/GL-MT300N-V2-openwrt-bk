@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-dnsview
+Version: git-2024.132.11282-a5656d4-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-dns
+Source: feeds/glinet/gl-ui4.0/module/dnsview
+SourceName: gl-sdk4-ui-dnsview
+Section: base
+SourceDateEpoch: 1715396882
+Architecture: mipsel_24kc
+Installed-Size: 26370
+Description:  gl-sdk4-ui-dnsview

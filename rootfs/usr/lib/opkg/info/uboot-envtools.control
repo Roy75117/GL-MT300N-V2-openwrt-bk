@@ -1,0 +1,12 @@
+Package: uboot-envtools
+Version: 2022.01-45
+Depends: libc
+Source: package/boot/uboot-envtools
+SourceName: uboot-envtools
+License: GPL-2.0 GPL-2.0+
+LicenseFiles: Licenses/README
+Section: utils
+SourceDateEpoch: 1724397771
+Architecture: mipsel_24kc
+Installed-Size: 12916
+Description:  This package includes tools to read and modify U-Boot bootloader environment.

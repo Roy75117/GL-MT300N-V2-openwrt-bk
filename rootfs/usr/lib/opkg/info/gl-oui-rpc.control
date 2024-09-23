@@ -1,0 +1,10 @@
+Package: gl-oui-rpc
+Version: git-2024.232.35298-afa7376-1
+Depends: libc, libuci-lua, jansson4, lsqlite3, libiwinfo-lua, libubus-lua, luabitop, openssl-util, gl-sdk4-log, lua-cjson, fcgi, nginx-ssl
+Source: feeds/glinet/gl-oui/gl-oui-rpc
+SourceName: gl-oui-rpc
+Section: oui
+SourceDateEpoch: 1724060898
+Architecture: mipsel_24kc
+Installed-Size: 54302
+Description:  Oui rpc backend

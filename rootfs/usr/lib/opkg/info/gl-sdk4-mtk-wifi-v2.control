@@ -1,0 +1,10 @@
+Package: gl-sdk4-mtk-wifi-v2
+Version: git-2024.054.32520-28a1613-1
+Depends: libc, lua, libuci-lua, libubox-lua, libubus-lua
+Source: feeds/glinet/gl-sdk4-mtk-wifi-v2
+SourceName: gl-sdk4-mtk-wifi-v2
+Section: base
+SourceDateEpoch: 1708678920
+Architecture: mipsel_24kc
+Installed-Size: 32912
+Description:  MTK WiFi Configure for Gl.inet

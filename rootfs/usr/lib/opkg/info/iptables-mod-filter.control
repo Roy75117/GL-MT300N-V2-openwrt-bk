@@ -1,0 +1,18 @@
+Package: iptables-mod-filter
+Version: 1.8.7-7
+Depends: libc, libxtables12, kmod-ipt-filter
+Source: package/network/utils/iptables
+SourceName: iptables-mod-filter
+License: GPL-2.0
+Section: net
+SourceDateEpoch: 1661640100
+CPE-ID: cpe:/a:netfilter_core_team:iptables
+Architecture: mipsel_24kc
+Installed-Size: 4630
+Description:  iptables extensions for packet content inspection.
+ Includes support for:
+ 
+ Matches:
+ - string
+ - bpf
+ 

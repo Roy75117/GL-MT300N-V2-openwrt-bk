@@ -1,0 +1,10 @@
+Package: libuci-lua53
+Version: 1
+Depends: libc, libuci20130104, liblua5.3-5.3
+Source: feeds/gl_feed_common/libuci-lua-53
+SourceName: libuci-lua53
+Section: libs
+SourceDateEpoch: 1693964375
+Architecture: mipsel_24kc
+Installed-Size: 6072
+Description:  Lua5.3 plugin for UCI

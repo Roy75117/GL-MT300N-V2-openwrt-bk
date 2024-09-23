@@ -1,0 +1,161 @@
+#!/bin/sh
+. /lib/functions/modem.sh
+
+count=0
+firmware_upload="$1"
+modem_url="$2"
+target_version="$3"
+hash_type=$4
+hash_value="$5"
+upgrade_type="$6"
+version_flag='0'
+
+[ "$firmware_upload" = "router" ] && {
+	#Modem Firmware Download
+	echo '1' > /tmp/modem_upgrade_status
+	[ -f "/tmp/modem.zip" ] && {
+		rm /tmp/modem.zip
+	}
+	curl -Ls --connect-timeout 5 $modem_url --max-time 1800 -o /tmp/modem.zip >> /dev/null
+
+	#sha256 check
+	echo '2' > /tmp/modem_upgrade_status
+	if [ "$hash_type" = "sha256" ];then
+		sha256sum=$(sha256sum /tmp/modem.zip |awk '{print $1}')
+		if [ "$sha256sum" != "$hash_value" ];then
+			logger -t modem_upgrade_check "Check the firmware sha256sum failed, exit,please try again!"
+			echo '3' > /tmp/modem_upgrade_status
+			exit 0
+		fi
+	else
+		logger -t modem_upgrade_check "Check the firmware sha256sum type failed, exit,please try again!"
+		echo '4' > /tmp/modem_upgrade_status
+		exit 0
+	fi
+}
+
+#Stop the 4G modem network
+echo '5' > /tmp/modem_upgrade_status
+bus=$(get_modem_bus)
+iface_id=`echo $bus | sed 's/-/_/g' | sed 's/\./_/g' | awk -F ":" '{print $1}'`
+
+#Disabled 4g network
+if [ "" != "$iface_id" ];then
+	modem_bus="modem_${iface_id}"
+	modem_enabled=$(uci -q get network.$modem_bus.disabled)
+	if [ "$modem_enabled" != "1" ];then
+		uci set network.$modem_bus.upgrade='1'
+		uci set network.$modem_bus.disabled='1'
+		uci commit network
+
+		#kill $(ps|grep mwan3track|grep $modem_bus|awk -F ' ' '{print $1}')
+		killall uqmi 2>/dev/null
+
+		/etc/init.d/network reload
+		sleep 2
+	fi
+fi
+
+#4G modem start upgrading
+echo '6' > /tmp/modem_upgrade_status
+if [ "$firmware_upload" = "modem" ];then #The modem downloads the firmware for upgrade
+	eval gl_modem -B $bus AT AT+QFOTADL=\\\"$modem_url\\\"
+	version_flag=1
+elif [ "$firmware_upload" = "router" ];then #The router upload modem firmware for upgrade
+	if [ "$upgrade_type" = "full_ota" ];then
+		unzip /tmp/modem.zip -d /etc/modem
+
+		/usr/bin/QFirehose -f /etc/modem
+
+		rm /etc/modem -rf
+		rm /tmp/modem.zip
+		version_flag=1
+	elif [ "$upgrade_type" = "delta_ota" ];then
+		[ -f "/tmp/modem_status" ] && rm /tmp/modem_status
+		count=0
+		while true
+		do
+			/usr/bin/quec_upload -f /tmp/modem.zip -p /dev/ttyUSB4 > /tmp/modem_status
+
+			tmp=`cat /tmp/modem_status | grep success`
+			count=$((count+1))
+			if [ "$tmp" != "" ];then
+				flag=1
+				break
+			elif [ $count -gt 5 ];then
+				break
+			fi
+		done
+
+		if [ "$flag" = "1" ];then
+			eval gl_modem -B $bus AT at+qfotadl=\\\"/data/ufs/modem.zip\\\"
+		fi
+		version_flag=1
+	fi
+fi
+
+#PCIE Driver reload
+model=`cat /proc/gl-hw-info/model`
+if [ "$model" == "x3000" ] || [ "$model" == "xe3000" ];then
+	sleep 15
+	echo 1 > /sys/bus/pci/devices/0001:01:00.0/remove
+	sleep 15
+	echo 1 > /sys/bus/pci/devices/0001:00:00.0/rescan
+	sleep 15
+fi
+
+
+if [ "1" = "$version_flag" ];then
+	sleep 30
+	count=0
+	while true
+	do
+		gl_modem -B $bus AT AT+QGMR
+		sleep 10
+
+		tmp=''
+		tmp=`gl_modem -B $bus AT AT+QGMR | sed '/AT+\|at+\|OK\|ok/d\' | grep [A-Z]`
+
+		version=''
+		version=${tmp%?}
+		if [ "$version" != "$target_version" ];then
+			sleep 60
+			count=$(($count+1))
+		else
+			rm /tmp/usbnode/$bus -rf
+			sleep 2
+			ubus call gl-cloud alive
+			sleep 5
+			ubus call gl-cloud alive
+			break
+		fi
+
+		if [ $count -gt 60 ];then
+			logger -t modem_upgrade_check "Upgrade failed, exit,please try again!"
+			echo '7' > /tmp/modem_upgrade_status
+			echo "Modem upgrade failure"
+			break
+		fi
+	done
+fi
+
+#Restore 4G network
+if [ "" != "$bus" ];then 
+	#upgrade=`uci -q get network.$modem_bus.upgrade`
+	#if [ "$modem_enabled" = "0" -o "$upgrade" = "1" ];then
+		uci set network.$modem_bus.disabled='0'
+		uci del network.$modem_bus.upgrade
+		uci commit network
+
+		zone=`uci -q get firewall.@zone[1].network`
+		flag=`uci -q get firewall.@zone[1].network | grep $modem_bus`
+		[ -z "$flag" ] && {
+			uci add_list firewall.@zone[1].network="$modem_bus"
+			uci commit firewall
+			/etc/init.d/firewall reload
+		}
+
+		/etc/init.d/network reload
+		sleep 10
+	#fi
+fi

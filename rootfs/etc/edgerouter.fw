@@ -1,0 +1,115 @@
+#!/bin/sh
+
+. /lib/functions.sh
+. /lib/functions/gl_util.sh
+
+WANIF="$(get_wan)"
+enabled=`uci get edgerouter.global.enabled`
+force_dns=`uci get edgerouter.global.force_dns`
+
+IPTW="iptables -w 5"
+
+fw4_add_forward(){
+mkdir -p /usr/share/nftables.d/chain-pre/forward/
+cat>/usr/share/nftables.d/chain-pre/forward/02-edg.nft<<EOF
+iifname "$WANIF" oifname "wg*" counter accept
+iifname "$WANIF" oifname "ovpn*" counter accept
+iifname "$WANIF" oifname "$WANIF" counter accept
+EOF
+}
+
+fw4_add_input(){
+mkdir -p /usr/share/nftables.d/chain-pre/input/
+cat>/usr/share/nftables.d/chain-pre/input/02-edg.nft<<EOF
+iifname "$WANIF" accept
+EOF
+}
+
+handle_dns()
+{
+	local LANIP=$(uci -q get network.lan.ipaddr)
+
+	$IPTW -t nat  -F EDGEROUTER_PREROUTING || return 0
+	[ -z "$WANIF" ] && return 0
+	[ "$force_dns" = "1" ] || return 0
+
+	if [ "$(uci -q get adguardhome.config.dns_enabled)" = "1" -a "$(uci -q get adguardhome.config.enabled)" = "1" ];then
+		$IPTW -t nat -I EDGEROUTER_PREROUTING -i $WANIF  -p udp --dport 53 -j REDIRECT --to-ports 3053
+		$IPTW -t nat -I EDGEROUTER_PREROUTING -i $WANIF  -p tcp --dport 53 -j REDIRECT --to-ports 3053
+	else
+		[ -z "$LANIP" ] && return 0
+		$IPTW -t nat -I EDGEROUTER_PREROUTING -i $WANIF  -p udp --dport 53 -j DNAT --to "$LANIP"
+		$IPTW -t nat -I EDGEROUTER_PREROUTING -i $WANIF  -p tcp --dport 53 -j DNAT --to "$LANIP"
+	fi
+}
+
+create()
+{
+	[ -z "$WANIF" ] && return
+
+	if [ -n "$(which fw4)" ];then
+		fw4_add_forward
+		fw4_add_input
+	else
+		$IPTW -N EDGEROUTER_INPUT 2>/dev/null
+		$IPTW -C INPUT -j EDGEROUTER_INPUT
+		[ ! "$?" = "0" ] && $IPTW -I INPUT -j EDGEROUTER_INPUT
+		$IPTW -F EDGEROUTER_INPUT 2>/dev/null
+		$IPTW -I EDGEROUTER_INPUT -i $WANIF -j ACCEPT
+
+		$IPTW -N EDGEROUTER_FORWARD 2>/dev/null
+		$IPTW -C FORWARD -j EDGEROUTER_FORWARD
+		[ ! "$?" = "0" ] && $IPTW -I FORWARD 2 -j EDGEROUTER_FORWARD
+		$IPTW -F EDGEROUTER_FORWARD 2>/dev/null
+		$IPTW -I EDGEROUTER_FORWARD  -i $WANIF -o $WANIF -j ACCEPT
+		$IPTW -I EDGEROUTER_FORWARD  -i $WANIF -o wg+ -j ACCEPT
+		$IPTW -I EDGEROUTER_FORWARD  -i $WANIF -o ovpn+ -j ACCEPT
+	fi
+	
+	$IPTW -t nat -N EDGEROUTER_PREROUTING 2>/dev/null
+	$IPTW -t nat -C PREROUTING -j EDGEROUTER_PREROUTING
+	[ ! "$?" = "0" ] && $IPTW -t nat -I PREROUTING -j EDGEROUTER_PREROUTING
+	handle_dns
+
+
+}
+
+remove()
+{
+	$IPTW -t nat -D PREROUTING -j EDGEROUTER_PREROUTING 2>/dev/null
+	$IPTW -t nat  -F EDGEROUTER_PREROUTING 2>/dev/null
+	$IPTW -t nat -X EDGEROUTER_PREROUTING 2>/dev/null
+	if [ -n "$(which fw4)" ];then
+		rm /usr/share/nftables.d/chain-pre/forward/02-edg.nft
+		rm /usr/share/nftables.d/chain-pre/input/02-edg.nft
+	else
+		$IPTW -D FORWARD -j EDGEROUTER_FORWARD 2>/dev/null
+		$IPTW -F EDGEROUTER_FORWARD 2>/dev/null
+		$IPTW -X EDGEROUTER_FORWARD 2>/dev/null
+
+		$IPTW -D INPUT -j EDGEROUTER_INPUT 2>/dev/null
+		$IPTW -F EDGEROUTER_INPUT 2>/dev/null
+		$IPTW -X EDGEROUTER_INPUT 2>/dev/null
+	fi
+
+}
+
+
+while [ true ];do
+	[ ! -f /var/run/fw3.lock ] && break
+	sleep 1
+done
+touch /var/run/fw3.lock
+
+if [ "$1" = "create" ];then
+	create
+elif [ "$1" = "loaddns" ];then
+		handle_dns
+else
+	remove
+fi
+
+rm  /var/run/fw3.lock
+if [ -n "$(which fw4)" ];then
+	/etc/init.d/firewall reload
+fi

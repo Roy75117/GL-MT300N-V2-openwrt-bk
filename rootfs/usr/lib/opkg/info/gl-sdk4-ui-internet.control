@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-internet
+Version: git-2024.150.11353-c4f68f3-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-cable
+Source: feeds/glinet/gl-ui4.0/module/internet
+SourceName: gl-sdk4-ui-internet
+Section: base
+SourceDateEpoch: 1716952153
+Architecture: mipsel_24kc
+Installed-Size: 85811
+Description:  gl-sdk4-ui-internet

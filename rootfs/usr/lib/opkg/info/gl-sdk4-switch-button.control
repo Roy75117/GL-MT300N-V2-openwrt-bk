@@ -1,0 +1,10 @@
+Package: gl-sdk4-switch-button
+Version: git-2023.184.27388-c4c457b-1
+Depends: libc
+Source: feeds/glinet/gl-sdk4-switch-button
+SourceName: gl-sdk4-switch-button
+Section: base
+SourceDateEpoch: 1688369788
+Architecture: mipsel_24kc
+Installed-Size: 1096
+Description:  Switch button API for Gl.inet

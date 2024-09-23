@@ -1,0 +1,6 @@
+/etc/config/gl_logread
+/usr/bin/net_dbg.sh
+/usr/bin/oopslog
+/usr/bin/export_logs
+/usr/lib/oui-httpd/rpc/logread
+/etc/init.d/gl_logread

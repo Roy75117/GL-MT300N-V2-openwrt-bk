@@ -1,0 +1,7 @@
+/etc/gl-switch.d/openvpn.sh
+/etc/config/ovpnclient
+/usr/lib/oui-httpd/rpc/ovpn-client.so
+/lib/netifd/proto/ovpnclient.sh
+/etc/openvpn/scripts/ovpnclient-up
+/usr/share/gl-upload.d/ovpnclient
+/etc/openvpn/scripts/ovpnclient-down

@@ -1,0 +1,12 @@
+Package: luci-lib-json
+Version: git-18.184.37844-cde13dc
+Depends: libc
+Source: feeds/luci/libs/luci-lib-json
+SourceName: luci-lib-json
+License: Apache-2.0
+Section: luci
+SourceDateEpoch: 1530613844
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 3136
+Description:  LuCI JSON library

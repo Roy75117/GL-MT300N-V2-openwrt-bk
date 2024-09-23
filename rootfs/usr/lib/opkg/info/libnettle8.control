@@ -1,0 +1,14 @@
+Package: libnettle8
+Version: 3.7.3-2
+Depends: libc, libgmp10
+Provides: libnettle
+Source: package/libs/nettle
+SourceName: libnettle
+License: GPL-2.0-or-later
+LicenseFiles: COPYING
+Section: libs
+SourceDateEpoch: 1640115415
+ABIVersion: 8
+Architecture: mipsel_24kc
+Installed-Size: 327970
+Description:  GNU crypto library

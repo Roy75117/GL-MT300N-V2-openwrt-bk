@@ -1,0 +1,10 @@
+Package: luci-i18n-alist-zh-cn
+Version: git-24.250.24846-b8b5ba4
+Depends: libc, luci-app-alist
+Source: /feed/luci-app-alist
+SourceName: luci-i18n-alist-zh-cn
+Section: luci
+SourceDateEpoch: 1725649651
+Architecture: all
+Installed-Size: 1934
+Description:  Translation for luci-app-alist - 简体中文 (Chinese Simplified)

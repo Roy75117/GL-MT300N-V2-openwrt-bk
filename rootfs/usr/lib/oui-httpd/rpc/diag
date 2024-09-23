@@ -1,0 +1,50 @@
+--[[
+    @object-name: diag
+    @object-desc: network diagnosis
+--]]
+
+local M = {}
+
+--[[
+    @method-type: call
+    @method-name: ping
+    @method-desc: test network connection
+
+    @in string addr target IP address
+
+    @out string ping_result results of the ping command
+
+    @in-example: {"jsonrpc":"2.0","id":1,"method":"call","params":["","diag","ping",{"addr":"192.168.8.1"}]}
+    @out-example: {"jsonrpc": "2.0", "id": 1, "result": {"ping_result":"string"}}
+--]]
+M.ping = function(params)
+    local addr = params.addr
+    local cmd = {"ping", "-c4", addr}
+    local proc = ngx.pipe.spawn(cmd)
+    local str = proc:stdout_read_all()
+
+    return {ping_result = str}
+end
+
+--[[
+    @method-type: call
+    @method-name: traceroute
+    @method-desc: trace network path
+
+    @in string addr target IP address
+
+    @out string trace_result results of the traceroute command
+
+    @in-example: {"jsonrpc":"2.0","id":1,"method":"call","params":["","diag","traceroute",{"addr":"192.168.8.1"}]}
+    @out-example: {"jsonrpc": "2.0", "id": 1, "result": {"trace_result":"string"}}
+--]]
+M.traceroute = function(params)
+    local addr = params.addr
+    local cmd = {"traceroute", "-4", "-q", "1", "-w", "1", "-n", addr}
+    local proc = ngx.pipe.spawn(cmd)
+    local str = proc:stdout_read_all()
+
+    return {trace_result = str}
+end
+
+return M

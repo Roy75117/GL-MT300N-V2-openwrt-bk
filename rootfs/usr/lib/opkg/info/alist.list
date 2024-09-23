@@ -1,0 +1,5 @@
+/etc/config/alist
+/etc/alist/data.db
+/etc/init.d/alist
+/lib/upgrade/keep.d/alist
+/usr/bin/alist

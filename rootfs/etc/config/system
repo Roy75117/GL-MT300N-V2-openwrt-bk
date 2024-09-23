@@ -1,0 +1,32 @@
+
+config system
+	option log_size '64'
+	option urandom_seed '0'
+	option hostname 'GL-MT300N-V2'
+	option compat_version '1.0'
+	option ttylogin '1'
+	option timezone 'JST-9'
+	option zonename 'Asia/Tokyo'
+	option log_proto 'udp'
+	option conloglevel '8'
+	option cronloglevel '5'
+
+config timeserver 'ntp'
+	list server '0.openwrt.pool.ntp.org'
+	list server '1.openwrt.pool.ntp.org'
+	list server '2.openwrt.pool.ntp.org'
+	list server '3.openwrt.pool.ntp.org'
+
+config led 'led_wifi_led'
+	option name 'wifi'
+	option sysfs 'red:wlan'
+	option trigger 'netdev'
+	option mode 'link tx rx'
+	option dev 'ra0'
+
+config led 'led_wan'
+	option name 'wan'
+	option sysfs 'green:wan'
+	option trigger 'switch0'
+	option port_mask '0x1'
+

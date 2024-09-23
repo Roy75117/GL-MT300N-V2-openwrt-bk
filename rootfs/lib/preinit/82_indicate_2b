@@ -1,0 +1,21 @@
+#!/bin/sh
+
+get_env() {
+    local cfg="/etc/fw_env_gl.config"
+
+    [ -f "$cfg" ] || {
+        cfg="/etc/fw_env.config"
+        [ -f "$cfg" ] || return
+    }
+
+    fw_printenv -c "$cfg" $1 2>/dev/null | awk -F'=' '{print $2}'
+}
+
+do_indicate_2b() {
+    [ "$(get_env fw)" = "2b" ] || return
+
+    local model=$(get_env model)
+    [ -n "$model" ] && echo "$model" > /tmp/sysinfo/model
+}
+
+boot_hook_add preinit_main do_indicate_2b

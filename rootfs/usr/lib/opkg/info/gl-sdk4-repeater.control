@@ -1,0 +1,10 @@
+Package: gl-sdk4-repeater
+Version: git-2023.203.28480-ccdb307-1
+Depends: libc, lua, libubox-lua, libuci-lua, libubus-lua, gl-oui-rpc, gl-sdk4-log, gl-sdk4-wifi, libiwinfo20210430, libiwinfo-lua, libnl-tiny1
+Source: feeds/glinet/gl-sdk4-repeater
+SourceName: gl-sdk4-repeater
+Section: base
+SourceDateEpoch: 1690012480
+Architecture: mipsel_24kc
+Installed-Size: 27472
+Description:  Repeater management for Gl.inet

@@ -1,0 +1,10 @@
+Package: gl-sdk4-mwan3
+Version: git-2023.166.22668-eb07f10-1
+Depends: libc, libuci-lua, mwan3, httping, ip6tables-nft
+Source: feeds/glinet/gl-sdk4-mwan3
+SourceName: gl-sdk4-mwan3
+Section: base
+SourceDateEpoch: 1686809868
+Architecture: mipsel_24kc
+Installed-Size: 3838
+Description:  glinet SDK4 mwan3 module

@@ -1,0 +1,96 @@
+#!/bin/sh
+
+[ "$INTERFACE" = "lan" ] && exit 0
+[ "$INTERFACE" = "guest" ] && exit 0
+[ "$INTERFACE" = "loopback" ] && exit 0
+
+[ $ACTION = "ifup" -o $ACTION = "ifdown" -o "$ACTION" = "ifupdate" ] || exit 0
+
+INCLUDE_ONLY=1
+.  /usr/bin/route_policy
+PROXY_MODE="$(uci -q get vpnpolicy.route_policy.proxy_mode)"
+
+check_router_status()
+{
+	#如果路由器工作在桥接模式，直接退出
+    mode="$(uci get glconfig.general.mode)"
+    if [ "$mode" = "ap" -o "$mode" = "wds" -o "$mode" = "relay" ];then
+        exit 1
+    fi
+}
+
+update_dnsmasq_conf()
+{
+	local flag=0
+	local old
+	old=""
+	old="$(cat /tmp/dnsmasq.d/bypass_domain |grep server=/|tail -n 1|awk -F/ '{print $NF}')"
+	[ -n "$old" ] && [ -n "$WAN_DNS" ] && [ ! "$old" = "$WAN_DNS" ] && {
+		flag=1
+		sed -i "s/\/${old}/\/${WAN_DNS}/g" /tmp/dnsmasq.d/bypass_domain
+	}
+	[ -n "$old" ] &&[ -z "$WAN_DNS" ] && {
+		flag=1
+		sed -i "/server=/d" /tmp/dnsmasq.d/bypass_domain
+	}
+	[ -z "$old" ] &&[ -n "$WAN_DNS" ] && {
+		flag=1
+		local context="$(cat /tmp/dnsmasq.d/bypass_domain)"
+		[ -n "$context" ] && {
+			sed "s/ipset=/server=/g" /tmp/dnsmasq.d/bypass_domain >/tmp/dnsmasq_bypass_domain.server
+			sed -i "s/bypass_vpn_domain/${WAN_DNS}/g" /tmp/dnsmasq_bypass_domain.server
+			cat /tmp/dnsmasq_bypass_domain.server /tmp/dnsmasq.d/bypass_domain > /tmp/dnsmasq.d/bypass_domain.tmp
+			mv /tmp/dnsmasq.d/bypass_domain.tmp /tmp/dnsmasq.d/bypass_domain
+			rm -f /tmp/dnsmasq_bypass_domain.server
+		}
+	}
+	old=""
+	old="$(cat /tmp/dnsmasq.d/via_domain |grep server=/|tail -n 1|awk -F/ '{print $NF}')"
+	[ -n "$old" ] &&[ -n "$VPN_DNS" ] && [ ! "$old" = "$VPN_DNS" ] && {
+		flag=1
+		sed -i "s/\/${old}/\/${VPN_DNS}/g" /tmp/dnsmasq.d/via_domain
+	}
+	[ -n "$old" ] &&[ -z "$VPN_DNS" ] && {
+		flag=1
+		sed -i "/server=/d" /tmp/dnsmasq.d/via_domain
+	}
+	[ -z "$old" ] &&[ -n "$VPN_DNS" ] && {
+		flag=1
+		local context="$(cat /tmp/dnsmasq.d/via_domain)"
+		[ -n "$context" ] && {
+			sed "s/ipset=/server=/g" /tmp/dnsmasq.d/via_domain >/tmp/dnsmasq_via_domain.server
+			sed -i "s/via_vpn_domain/${VPN_DNS}/g" /tmp/dnsmasq_via_domain.server
+			cat /tmp/dnsmasq_via_domain.server /tmp/dnsmasq.d/via_domain > /tmp/dnsmasq.d/via_domain.tmp
+			mv /tmp/dnsmasq.d/via_domain.tmp /tmp/dnsmasq.d/via_domain
+		}
+	}
+
+	[ "$flag" = 1 ] && {
+		/etc/init.d/dnsmasq restart
+	}
+	
+}
+
+check_router_status
+handle_dns
+
+ case "$PROXY_MODE" in
+	"3")
+		update_dnsmasq_conf
+		reload_domain_firewall
+	;;
+	"4")
+		reload_mac_firewall
+	;;
+	"5")
+		set_vlan_firewall
+	;;
+	*)
+ esac
+
+#update_firewall
+#update_guest_policy
+#update_dns_route
+#update_dnsmasq_conf
+
+

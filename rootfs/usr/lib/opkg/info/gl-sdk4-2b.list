@@ -1,0 +1,5 @@
+/etc/init.d/gl-update-logo
+/usr/bin/gl-update-logo
+/lib/preinit/82_indicate_2b
+/etc/uci-defaults/z-2b-cfg
+/lib/preinit/81_merge_2b_cfg

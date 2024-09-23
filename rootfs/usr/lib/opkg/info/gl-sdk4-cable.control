@@ -1,0 +1,10 @@
+Package: gl-sdk4-cable
+Version: git-2023.307.38585-1b1acd2-1
+Depends: libc, jansson4, gl-sdk4-uci, gl-sdk4-utils
+Source: feeds/glinet/gl-sdk4-cable
+SourceName: gl-sdk4-cable
+Section: base
+SourceDateEpoch: 1699008185
+Architecture: mipsel_24kc
+Installed-Size: 9527
+Description:  Oui Support for cable

@@ -1,0 +1,14 @@
+{
+    "index": 60,
+    "view": "btnsettings",
+    "level": 2,
+    "parent": "system",
+    "parent_icon": "setting",
+    "parent_index": 40,
+    "lang_hide": [
+        "zh-cn"
+    ],
+    "show_mode": [
+        "router"
+    ]
+}

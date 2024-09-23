@@ -1,0 +1,10 @@
+Package: gl-sdk4-lan
+Version: git-2024.075.15010-02326ca-1
+Depends: libc
+Source: feeds/glinet/gl-sdk4-lan
+SourceName: gl-sdk4-lan
+Section: base
+SourceDateEpoch: 1710475810
+Architecture: mipsel_24kc
+Installed-Size: 8633
+Description:  Lan API

@@ -1,0 +1,16 @@
+Package: iptables-mod-tproxy
+Version: 1.8.7-7
+Depends: libc, libxtables12, kmod-ipt-tproxy
+Source: package/network/utils/iptables
+SourceName: iptables-mod-tproxy
+License: GPL-2.0
+Section: net
+SourceDateEpoch: 1661640100
+CPE-ID: cpe:/a:netfilter_core_team:iptables
+Architecture: mipsel_24kc
+Installed-Size: 1846
+Description:  Transparent proxy iptables extensions.
+ 
+ Targets:
+ - TPROXY
+ 

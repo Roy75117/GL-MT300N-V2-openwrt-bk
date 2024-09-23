@@ -1,0 +1,14 @@
+Package: stubby
+Version: 0.4.0-3
+Depends: libc, libyaml, getdns, ca-certs
+Source: feeds/gl_feed_common/stubby
+SourceName: stubby
+License: BSD-3-Clause
+LicenseFiles: COPYING
+Section: net
+Require-User: stubby=410:stubby=410
+SourceDateEpoch: 1657176110
+Architecture: mipsel_24kc
+Installed-Size: 18501
+Description:  This package contains the Stubby daemon (which utilizes the getdns library).
+ See https://github.com/openwrt/packages/blob/master/net/stubby/files/README.md for more details.

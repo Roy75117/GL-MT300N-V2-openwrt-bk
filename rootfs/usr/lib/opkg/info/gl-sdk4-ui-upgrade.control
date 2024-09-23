@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-upgrade
+Version: git-2024.102.23078-84b31f3-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-upgrade
+Source: feeds/glinet/gl-ui4.0/module/upgrade
+SourceName: gl-sdk4-ui-upgrade
+Section: base
+SourceDateEpoch: 1712816678
+Architecture: mipsel_24kc
+Installed-Size: 21610
+Description:  gl-sdk4-ui-upgrade

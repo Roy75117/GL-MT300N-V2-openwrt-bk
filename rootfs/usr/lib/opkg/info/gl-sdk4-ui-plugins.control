@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-plugins
+Version: git-2024.065.28926-e3a0e54-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-plugins
+Source: feeds/glinet/gl-ui4.0/module/plugins
+SourceName: gl-sdk4-ui-plugins
+Section: base
+SourceDateEpoch: 1709625726
+Architecture: mipsel_24kc
+Installed-Size: 23412
+Description:  gl-sdk4-ui-plugins

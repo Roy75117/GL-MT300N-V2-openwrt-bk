@@ -1,0 +1,39 @@
+#!/bin/sh /etc/rc.common
+. /lib/functions/gl_util.sh
+START=97
+STOP=10
+
+USE_PROCD=1
+
+check_pcie()
+{
+    if [ -e "/proc/gl-hw-info/build-in-modem" ] && [ -n "$(ls /dev/ | grep 'mhi_')" -o -d "/sys/devices/platform/11200000.xhci/usb1/1-1/1-1.2" ]; then
+        if [ ! -e "/dev/mhi_DUN" -a ! -e "/dev/mhi_BHI" -a ! -e "/dev/mhi_QMI0" ]; then
+            logger "monitor pcie fail, now reboot ..."
+            reboot
+            exit
+        else
+            logger "check_pcie ok"
+        fi
+    fi
+}
+
+start_service() {
+    model=$(get_model)
+    case "$model" in
+        "x3000")
+            check_pcie
+            procd_open_instance "modem_signal"
+            procd_set_param command "/usr/bin/modem_signal"
+            procd_set_param respawn ${respawn_threshold:-3600} ${respawn_timeout:-5} ${respawn_retry:-5}
+            procd_close_instance
+            ;;
+        "xe3000")
+            procd_open_instance "modem_signal"
+            procd_set_param command "/usr/bin/modem_signal"
+            procd_set_param respawn ${respawn_threshold:-3600} ${respawn_timeout:-5} ${respawn_retry:-5}
+            procd_close_instance
+            ;;
+        *)
+    esac
+}

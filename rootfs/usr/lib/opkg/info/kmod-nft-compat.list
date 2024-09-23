@@ -1,0 +1,2 @@
+/etc/modules.d/nft-compat
+/lib/modules/5.10.176/nft_compat.ko

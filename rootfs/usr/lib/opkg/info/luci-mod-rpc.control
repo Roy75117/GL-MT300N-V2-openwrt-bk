@@ -1,0 +1,12 @@
+Package: luci-mod-rpc
+Version: git-21.020.56896-af422b1
+Depends: libc, luci-lib-json
+Source: feeds/luci/modules/luci-mod-rpc
+SourceName: luci-mod-rpc
+License: Apache-2.0
+Section: luci
+SourceDateEpoch: 1611157696
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 2990
+Description:  LuCI RPC - JSON-RPC API

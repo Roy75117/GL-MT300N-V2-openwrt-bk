@@ -1,0 +1,14 @@
+{
+    "index": 30,
+    "view": "ovpnserver",
+    "level": 2,
+    "parent": "vpn",
+    "parent_icon": "vpn",
+    "parent_index": 10,
+    "parent_lang_hide": [
+        "zh-cn"
+    ],
+    "parent_show_mode": [
+        "router"
+    ]
+}

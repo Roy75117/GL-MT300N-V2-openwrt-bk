@@ -1,0 +1,288 @@
+#!/bin/sh
+
+# include netifd library
+. /lib/functions.sh
+. /lib/netifd/netifd-proto.sh
+. /lib/functions/gl_util.sh
+
+interface="$1"
+proxy_mode="$2"
+
+logger -t ovpnclient-up "env value:"`env`
+custom_route_rules()
+{
+	local rule_client_id
+	local route_flag
+	local dest
+	local mask
+	local gateway
+	local metric
+	local mtu
+	local scope
+
+	config_get rule_client_id "$1" "client_id"
+	config_get route_flag "$1" "route_flag"
+	config_get dest "$1" "dest"
+	config_get mask "$1" "mask"
+	config_get gateway "$1" "gateway"
+	config_get metric "$1" "metric"
+	config_get mtu "$1" "mtu"
+	config_get scope "$1" "scope"
+
+	#logger -t ovpnclient-up "rule_client_id=${rule_client_id}, route_flag=${route_flag}, dest=${dest}, mask=${mask}, gateway=${gateway}, metric=${metric}, mtu=${mtu}"
+
+	if [ -n "${mtu}" ]; then
+		route_option="metric ${metric} mtu ${mtu}"
+	else
+		route_option="metric ${metric}"
+	fi
+
+	if [ ${client_id} = ${rule_client_id} ]; then
+		if [ ${route_flag} = "4" ]; then
+			if [ ${action} = "add" ]; then
+				ip route add "${dest}"/"${mask}" ${gateway:+via $gateway} dev "${interface}" ${scope:+scope $scope} ${route_option}
+			else
+				ip route del "${dest}"/"${mask}" ${gateway:+via $gateway}  dev "${interface}" ${scope:+scope $scope}
+			fi
+		elif [ ${route_flag} = "6" ]; then
+			if [ ${action} = "add" ]; then
+				ip -6 route add "${dest}"/"${mask}" ${gateway:+via $gateway} dev "${interface}" ${scope:+scope $scope} ${route_option}
+			else
+				ip -6 route del "${dest}"/"${mask}" ${gateway:+via $gateway} dev "${interface}" ${scope:+scope $scope}
+			fi
+		fi
+	fi
+}
+
+custom_route_settings()
+{
+	local action="$1"
+	local config
+	local client_id
+
+	config_load network
+	config_get config "${interface}" "config"
+	client_id=${config#*_}
+
+	config_load ovpnclient
+	config_foreach custom_route_rules route_rules
+}
+
+auto_route_rules()
+{
+	local lines=`cat ${route_file} | wc -l`
+	if [ ${lines} != "0" ]; then
+		while read line
+		do
+			local mask="$(echo ${line} | awk '{print $3}')"
+			if [ -n "${mask}" ]; then
+				local host="$(echo ${line} | awk '{print $2}')"
+				handle_route "" ${host} ${mask}
+			else
+				local route_ns="$(echo ${line} | awk '{print $2}')"
+				handle_route "${route_ns}" "" ""
+			fi
+		done < ${route_file}
+	fi
+}
+
+handle_route()
+{
+    local route_ns="$1"
+    local host="$2"
+    local mask="$3"
+
+	if [ -n "${route_ns}" ]; then
+		if [ ${action} = "add" ]; then
+			ip route add "${route_ns}"/1 dev "${interface}"
+		elif [ ${action} = "del" ]; then
+			ip route del "${route_ns}"/1 dev "${interface}"
+		fi
+	else
+		[ -n "${host}" ] && [ -n "${mask}" ] && {
+			if [ ${action} = "add" ]; then
+				if [ "$mask" = "255.255.255.255" ]; then
+					route add -host "${host}" dev "${interface}"
+				else
+					route add -net "${host}" netmask "${mask}" dev "${interface}"
+				fi
+			elif [ ${action} = "del" ]; then
+				if [ "$mask" = "255.255.255.255" ]; then
+					route del -host "${host}" dev "${interface}"
+				else
+					route del -net "${host}" netmask "${mask}" dev "${interface}"
+				fi
+			fi
+		}
+	fi
+}
+
+auto_route_settings()
+{
+	local action="$1"
+	local config
+	local client_id
+
+	config_load network
+	config_get config "${interface}" "config"
+	client_id=${config#*_}
+
+	local route_file=/tmp/auto_route_${client_id}.txt
+	if [ -n "$(grep "/usr/sbin/openvpn" /proc/$PPID/cmdline)" ]; then
+		echo -n "" >/tmp/auto_route_${client_id}.txt
+	fi
+
+	j=1
+	while true; do
+		route_ns=""
+		# As we know, for non-Windows openvpn clients can accept push DHCP
+		# options by using a client-side up script which parses the
+		# foreign_option_n environmental variable list
+		eval route_opt=\$foreign_option_${j}
+		eval host=\$route_network_${j}
+		eval mask=\$route_netmask_${j}
+		[ -z "${route_opt}" ] && [ -z "${host}" ] && [ -z "${mask}" ] && {
+			if [ -e "${route_file}" ]; then
+				auto_route_rules
+			fi
+			break
+		}
+
+		route_ns="$(echo ${route_opt} | grep 'dhcp-option route' | awk '{print $3}')"
+		if [ -n "${route_ns}" ]; then
+			handle_route ${route_ns} "" ""
+			[ -e "${route_file}" ] || {
+				touch "${route_file}"
+			}
+			grep -q "${route_ns}" ${route_file}
+			if [ "$?" = 1 ]; then
+				echo "${j} ${route_ns}" >> "${route_file}"
+			fi
+		else
+			[ -n "${host}" ] && [ -n "${mask}" ] && {
+				handle_route "" ${host} ${mask}
+				[ -e "${route_file}" ] || {
+					touch "${route_file}"
+				}
+				grep -q "${host}" ${route_file}
+				if [ "$?" = 1 ]; then
+					echo "${j} ${host} ${mask}" >> "${route_file}"
+				fi
+			}
+		fi
+		j=$((j + 1))
+	done
+}
+
+add_dns_settings()
+{
+	echo -e "# Interface $interface" > /tmp/resolv.conf.d/resolv.conf.ovpn
+    local i=1
+	ns=""
+    while true; do
+        # As we know, for non-Windows openvpn clients can accept push DHCP
+        # options by using a client-side up script which parses the
+        # foreign_option_n environmental variable list
+		eval opt=\$foreign_option_${i}
+		[ -z "${opt}" ] && break
+		[ -n "$(echo "${opt}" | grep "dhcp-option WINS")" ] && break
+
+		#ns="$(echo ${opt} | sed -e 's/dhcp-option DOMAIN/domain/g' -e 's/dhcp-option DNS/nameserver/g')"
+		#ns="$(echo ${opt} | grep -e 'dhcp-option DNS' -e 'dhcp-option DNS6' | awk '{print $3}')"
+		ns="$(echo ${opt} | grep -w 'dhcp-option DNS' | awk '{print $3}')"
+		ns6="$(echo ${opt} | grep -w 'dhcp-option DNS6' | awk '{print $3}')"
+		if [ -n "$ns" ]; then
+			#proto_add_dns_server "$ns"
+			echo -e "nameserver $ns" >> /tmp/resolv.conf.d/resolv.conf.ovpn
+		fi
+
+		if [ -n "$ns6" ]; then
+			#proto_add_dns_server "$ns6"
+			echo -e "nameserver $ns6" >> /tmp/resolv.conf.d/resolv.conf.ovpn
+		fi
+        i=$((i + 1))
+    done
+
+	if [ -z "$ns" -a -z "$ns6" ]; then
+		echo -e "nameserver 209.244.0.3\nnameserver 64.6.64.6" >> /tmp/resolv.conf.d/resolv.conf.ovpn
+	fi
+
+	if [ ${proxy_mode} = "0" -o ${proxy_mode} = "3" -o ${proxy_mode} = "4" -o ${proxy_mode} = "5" ]; then
+		[  -f "/tmp/resolv.conf.d/resolv.conf.ovpn" ] && {
+			echo resolv-file=/tmp/resolv.conf.d/resolv.conf.ovpn > /tmp/dnsmasq.d/resolv.vpn
+			create_restart_service /etc/init.d/dnsmasq
+		}
+	else
+		[ -f "/tmp/dnsmasq.d/resolv.vpn" ] && {
+			rm /tmp/dnsmasq.d/resolv.vpn
+			create_restart_service /etc/init.d/dnsmasq
+		}
+	fi
+}
+
+global_proxy_settings()
+{
+	local action="$1"
+
+	if [ ${action} = "add" ]; then
+		ip route add default dev "${interface}" table 8000
+		ip -6 route add default dev "${interface}" table 8000
+	elif [ ${action} = "del" ]; then
+		ip route del default dev "${interface}" table 8000
+		ip -6 route del default dev "${interface}" table 8000
+	fi
+}
+
+add_base_route(){
+	eval "$(ipcalc.sh $1 $2)";
+	ip_net="$NETWORK"
+	ip_prefix="$PREFIX"
+
+	proto_add_ipv4_route "$ip_net" "$ip_prefix"
+	echo $trusted_ip >/tmp/run/ovpn_resolved_ip
+}
+
+if [ -z "$GL_SERVICE_QUEUE" ]; then
+uci set firewall.block_dns.enabled='0'
+uci commit firewall
+
+proto_init_update "${interface}" 1
+proto_set_keep 1
+proto_add_ipv4_address "${ifconfig_local}" 32
+[ $# -gt 3 ] && {
+	add_base_route $6 $7
+}
+[ -n "$script_type" ] && add_dns_settings
+proto_send_update "${interface}"
+echo "connected" > /tmp/ovpnclient/${interface}_state
+
+#handle_dns
+fi
+
+if [ ${proxy_mode} = "0" ]; then
+	auto_route_settings del
+	custom_route_settings del
+	global_proxy_settings add
+elif [ ${proxy_mode} = "1" ]; then
+	global_proxy_settings del
+	custom_route_settings del
+	auto_route_settings add
+elif [ ${proxy_mode} = "2" ]; then
+	global_proxy_settings del
+	auto_route_settings del
+	custom_route_settings add
+elif [ ${proxy_mode} = "3" ]; then
+	auto_route_settings del
+	custom_route_settings del
+        global_proxy_settings add
+elif [ ${proxy_mode} = "4" ]; then
+	auto_route_settings del
+	custom_route_settings del
+        global_proxy_settings add
+elif [ ${proxy_mode} = "5" ]; then
+	auto_route_settings del
+	custom_route_settings del
+        global_proxy_settings add
+fi
+
+exit 0

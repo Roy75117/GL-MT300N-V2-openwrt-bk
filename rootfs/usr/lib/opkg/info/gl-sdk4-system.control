@@ -1,0 +1,10 @@
+Package: gl-sdk4-system
+Version: git-2024.156.05694-0b12600-1
+Depends: libc, libiwinfo-lua, libuci-lua, mwan3, gl-sdk4-lua-utils
+Source: feeds/glinet/gl-sdk4-system
+SourceName: gl-sdk4-system
+Section: base
+SourceDateEpoch: 1717464894
+Architecture: mipsel_24kc
+Installed-Size: 9450
+Description:  glinet SDK4 system module

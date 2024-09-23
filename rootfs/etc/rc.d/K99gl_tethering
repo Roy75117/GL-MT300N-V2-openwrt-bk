@@ -1,0 +1,23 @@
+#!/bin/sh /etc/rc.common
+# shellcheck disable=SC2034
+
+START=93
+STOP=99
+
+
+stop_usbmuxd() {
+        sleep 20
+        /etc/init.d/usbmuxd enable
+        /etc/init.d/usbmuxd start
+        sleep 2
+        ipheth=$(grep ipheth /sys/kernel/debug/usb/devices)
+        if [ -z "$ipheth" ];then
+                /etc/init.d/usbmuxd  stop
+        fi
+}
+
+start() {
+        /etc/init.d/usbmuxd disable
+        stop_usbmuxd &
+}
+

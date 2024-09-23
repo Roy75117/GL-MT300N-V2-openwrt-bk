@@ -1,0 +1,2 @@
+/lib/modules/5.10.176/xt_TPROXY.ko
+/etc/modules.d/ipt-tproxy

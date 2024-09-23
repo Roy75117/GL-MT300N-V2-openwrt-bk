@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-cloud
+Version: git-2024.066.15334-b8639af-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-cloud
+Source: feeds/glinet/gl-ui4.0/module/cloud
+SourceName: gl-sdk4-ui-cloud
+Section: base
+SourceDateEpoch: 1709698534
+Architecture: mipsel_24kc
+Installed-Size: 21674
+Description:  gl-sdk4-ui-cloud

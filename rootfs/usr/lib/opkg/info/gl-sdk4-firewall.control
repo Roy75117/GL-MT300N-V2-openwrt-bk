@@ -1,0 +1,10 @@
+Package: gl-sdk4-firewall
+Version: git-2023.208.24767-ff94311-1
+Depends: libc
+Source: feeds/glinet/gl-sdk4-firewall
+SourceName: gl-sdk4-firewall
+Section: base
+SourceDateEpoch: 1690440767
+Architecture: mipsel_24kc
+Installed-Size: 4952
+Description:  Firewall API for Gl.inet

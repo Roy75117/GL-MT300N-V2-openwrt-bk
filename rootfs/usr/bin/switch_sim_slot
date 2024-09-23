@@ -1,0 +1,546 @@
+#!/bin/sh
+. /lib/functions.sh
+. /lib/functions/modem.sh
+. /lib/netifd/netifd-proto.sh
+
+while true
+do
+	pid=`ps -w | grep verizon_apn.sh | grep -v grep`
+
+	[ "$pid" != "" ] && {
+		sleep 1
+		delay=1
+		continue
+	}
+	break
+done
+
+[ "$delay" = "1" ] && sleep 5
+
+trap 'dual_unlock;exit' INT TERM
+redial_sim=''
+echo_ssh() {
+    terminals=$(ls /dev/pts/* 2>/dev/null)
+    for terminal in $terminals; do
+        echo $1 >$terminal
+    done
+    echo $1 >/dev/console
+}
+
+dual_lock()
+{
+    # echo_ssh "==== switch start ..."
+    echo "lock" > /var/run/dual_sim/$iface/status
+    touch /var/run/switch-sim.lock
+}
+
+dual_unlock()
+{
+    # echo_ssh "==== switch end ..."
+    echo "unlock" > /var/run/dual_sim/$iface/status
+    [ -n "$AT_CMD" ] && {
+        for i in $(seq 1 3)
+        do
+            local slot=""
+            slot=$($AT_CMD AT+QUIMSLOT? | grep "+QUIMSLOT:" | tr -cd "0-9")
+            [ -n "$(echo $slot | grep [0-9])" ] && {
+                echo "$slot" > /var/run/dual_sim/$iface/current_sim
+                break
+            }
+        done
+    }
+    rm /var/run/switch-sim.lock 2>/dev/null
+}
+
+handle_profile()
+{
+    if [ "$1" = "$2" ]; then
+        iface=$3
+        local protocol device auth apn description apns apn_use
+        config_get protocol "$1" protocol "qcm"
+        config_get device "$1" device
+        config_get auth "$1" auth
+        config_get apn "$1" apn
+        config_get apns "$1" apns
+        config_get apn_use "$1" apn_use
+        config_get description "$1" description
+
+        config_get service "$1" service  #3g  CDCWDMA
+        config_get dialnumber "$1" dialnumber #3g #9999
+
+        config_get auth "$1" auth "NONE" #NONE CHAP,PAP/CHAP
+        config_get username "$1" username #auth NONE
+        config_get password "$1" password #auth NONE
+        config_get pincode "$1" pincode
+        config_get metric "$1" metric 40
+        config_get ttl "$1" ttl
+        config_get ttl_ipv6 "$1" ttl_ipv6
+        config_get mtu "$1" mtu
+
+        config_get roaming "$1" roaming "0"
+        config_get band_enable "$1" band_enable "0"
+        config_get band_list "$1" band_list
+        config_get band_filter_mode "$1" band_filter_mode
+
+        if [ -z "$device" -a "$3" = "modem_0001" ] && [ "$2" = "verizon" -o "$2" = "visible" ]; then
+            device="/dev/mhi_QMI0"
+        fi
+        # echo_ssh "1: $1 --protocol -- $protocol device--$device auth--$auth apn--$apn description--$description"
+        if [ -n "$protocol" -a -n "$device" ]; then
+            uci delete network.$iface 2>/dev/null
+            uci set network.$iface=interface
+            uci set network.$iface.disabled="$4"
+            uci set network.$iface.apn="$apn"
+            uci set network.$iface.apns="$apns"
+            uci set network.$iface.apn_use="$apn_use"
+            uci set network.$iface.proto="$protocol"
+            uci set network.$iface.device="$device"
+            uci set network.$iface.metric="$metric"
+            uci set network.$iface.id="$1"
+            uci set network.$iface.pincode="$pincode"
+            [ -n $mtu ] && uci set network.$iface.mtu="$mtu"
+
+            uci set network.$iface.roaming="$roaming"
+            uci set network.$iface.band_enable="$band_enable"
+            uci set network.$iface.band_list="$band_list"
+            uci set network.$iface.band_filter_mode="$band_filter_mode"
+
+            uci set network.$iface.auth="$auth"
+            if [ "$auth" != "NONE" ]; then
+                uci set network.$iface.username="$username"
+                uci set network.$iface.password="$password"
+            fi
+
+            if [ -n "$ttl" -o "$ttl_ipv6" ]; then
+                netdev="wwan0"
+                if [ -n "$(echo $protocol | grep 3g)" ]; then
+                    netdev="3g-$iface"
+                else
+                    if [ -n "$(echo $device | grep wdm1)" ]; then
+                        netdev="wwan1"
+                    elif [ -n "$(echo $device | grep mhi_QMI0)" ]; then
+                        netdev="rmnet_mhi0"
+                    fi
+                fi
+                uci set glmodem.$iface=forceTTL
+                uci set glmodem.$iface.dev="$netdev"
+                if [ -n "$ttl" ];then 
+					uci set glmodem.$iface.ttl="$ttl"
+				else
+					uci delete glmodem.$iface.ttl
+				fi
+                if [ -n "$ttl_ipv6" ];then
+					uci set glmodem.$iface.ttl_ipv6="$ttl_ipv6"
+				else
+					uci delete glmodem.$iface.ttl_ipv6
+				fi
+
+                uci set firewall.$iface=include
+                uci set firewall.$iface.type='script'
+                uci set firewall.$iface.path='/usr/bin/set_modem_ttl'
+                uci set firewall.$iface.reload='1'
+            else
+                uci delete glmodem.$iface 2>/dev/null
+                uci delete firewall.$iface 2>/dev/null
+            fi
+
+            zone=$(uci -q get firewall.@zone[1].network)
+            if [ -n "$(echo $zone| grep wan)" -a -z "$(echo $zone|grep $iface)" ]; then
+                uci add_list firewall.@zone[1].network="$iface"
+            fi
+            uci commit network
+            uci commit glmodem
+            uci commit firewall
+            /etc/init.d/network reload
+
+            [ -z "$ttl" -o -z "$ttl_ipv6" ] && /usr/bin/set_modem_ttl 2>/dev/null
+        fi
+    fi
+}
+
+handle_glmodem()
+{
+    if [ "$1" = "$2" ]; then
+        iface=$3
+        local protocol device auth apn description apns apn_use
+        config_get protocol "$1" protocol "qcm"
+        config_get device "$1" device
+        config_get auth "$1" auth
+        config_get apn "$1" apn
+        config_get apns "$1" apns
+        config_get apn_use "$1" apn_use
+        config_get description "$1" description
+
+        config_get service "$1" service  #3g  CDCWDMA
+        config_get dialnumber "$1" dialnumber #3g #9999
+
+        config_get auth "$1" auth "NONE" #NONE CHAP,PAP/CHAP
+        config_get username "$1" username #auth NONE
+        config_get password "$1" password #auth NONE
+        config_get pincode "$1" pincode
+        config_get metric "$1" metric 40
+        config_get ttl "$1" ttl
+        config_get ttl_ipv6 "$1" ttl_ipv6
+        config_get mtu "$1" mtu
+
+        config_get roaming "$1" roaming "0"
+        config_get band_enable "$1" band_enable "0"
+        config_get band_list "$1" band_list
+        config_get band_filter_mode "$1" band_filter_mode
+
+        if [ -z "$device" -a "$3" = "modem_0001" ] && [ "$2" = "verizon" -o "$2" = "visible" ]; then
+            device="/dev/mhi_QMI0"
+        fi
+        # echo_ssh "1: $1 --protocol -- $protocol device--$device auth--$auth apn--$apn description--$description"
+        if [ -n "$protocol" -a -n "$device" ]; then
+            uci delete network.$iface 2>/dev/null
+            uci set network.$iface=interface
+            uci set network.$iface.disabled="$4"
+            uci set network.$iface.apn="$apn"
+            uci set network.$iface.apns="$apns"
+            uci set network.$iface.apn_use="$apn_use"
+            uci set network.$iface.proto="$protocol"
+            uci set network.$iface.device="$device"
+            uci set network.$iface.metric="$metric"
+            #uci set network.$iface.id="$1"
+            uci set network.$iface.pincode="$pincode"
+            [ -n $mtu ] && uci set network.$iface.mtu="$mtu"
+
+            uci set network.$iface.roaming="$roaming"
+            uci set network.$iface.band_enable="$band_enable"
+            uci set network.$iface.band_list="$band_list"
+            uci set network.$iface.band_filter_mode="$band_filter_mode"
+
+            uci set network.$iface.auth="$auth"
+            if [ "$auth" != "NONE" ]; then
+                uci set network.$iface.username="$username"
+                uci set network.$iface.password="$password"
+            fi
+
+            if [ -n "$ttl" -o -n "$ttl_ipv6" ]; then
+                netdev="wwan0"
+                if [ -n "$(echo $protocol | grep 3g)" ]; then
+                    netdev="3g-$iface"
+                else
+                    if [ -n "$(echo $device | grep wdm1)" ]; then
+                        netdev="wwan1"
+                    elif [ -n "$(echo $device | grep mhi_QMI0)" ]; then
+                        netdev="rmnet_mhi0"
+                    fi
+                fi
+                uci set glmodem.$iface=forceTTL
+                uci set glmodem.$iface.dev="$netdev"
+                if [ -n "$ttl" ];then
+					uci set glmodem.$iface.ttl="$ttl"
+				else
+					uci delete glmodem.$iface.ttl
+				fi
+                if [ -n "$ttl_ipv6" ];then
+					uci set glmodem.$iface.ttl_ipv6="$ttl_ipv6"
+				else
+					uci delete glmodem.$iface.ttl_ipv6
+				fi
+
+                uci set firewall.$iface=include
+                uci set firewall.$iface.type='script'
+                uci set firewall.$iface.path='/usr/bin/set_modem_ttl'
+                uci set firewall.$iface.reload='1'
+            else
+                uci delete glmodem.$iface 2>/dev/null
+                uci delete firewall.$iface 2>/dev/null
+            fi
+
+            zone=$(uci -q get firewall.@zone[1].network)
+            if [ -n "$(echo $zone| grep wan)" -a -z "$(echo $zone|grep $iface)" ]; then
+                uci add_list firewall.@zone[1].network="$iface"
+            fi
+            uci commit network
+            uci commit glmodem
+            uci commit firewall
+            /etc/init.d/network reload
+
+            [ -z "$ttl" -o -z "$ttl_ipv6" ] && /usr/bin/set_modem_ttl 2>/dev/null
+        fi
+    fi
+
+    local network=`uci show network.modem_0001`
+    local sim=`cat /tmp/run/dual_sim/$iface/current_sim`
+    local modem_sim=`uci show glmodem.network_sim$redial_sim`
+    if [ "$network" = "" -o "$modem_sim" = "" ];then
+        gl_modem -B $bus connect-auto 2>/dev/null
+    fi
+}
+
+redial()
+{
+    redial_sim="$1"
+    $AT_CMD 'AT+QNWPREFCFG="mode_pref",NR5G'
+    $AT_CMD 'AT+QNWPREFCFG="mode_pref",AUTO'
+
+    modem_disabled=$(uci -q get network.$iface.disabled)
+    profile=$(uci -q get glmodem.${iface}_dual.sim${1}_profile)
+    if [ "$modem_disabled" = "0" ]; then
+        uci set network.$iface.disabled='1'
+        uci commit network
+        /etc/init.d/network reload
+        sleep 10
+        # ubus call network.interface.$iface up 1>/dev/null 2>&1
+        if [ -n "$profile" ]; then
+            config_load apnprofile
+            config_foreach handle_profile rule $profile $iface $modem_disabled
+        else
+            # echo_ssh "=== auto dial ..."
+            local profile_id=$(uci -q get network.$iface.id)
+            if [ "$2" = "update" -a -n "$profile_id" ]; then
+                config_load apnprofile
+                config_foreach handle_profile rule $profile_id $iface $modem_disabled
+            else
+                kill -9 $(pgrep -f 'connect-auto') 2>/dev/null
+                #gl_modem -B $bus connect-auto 2>/dev/null
+                config_load glmodem
+                local sim_id="network_sim$1"
+                config_foreach handle_glmodem network $sim_id $iface $modem_disabled
+            fi
+        fi
+    elif [ "$modem_disabled" = "1" ]; then
+        if [ -n "$profile" ]; then
+            config_load apnprofile
+            config_foreach handle_profile rule $profile $iface $modem_disabled
+        fi
+    fi
+}
+
+update_sim()
+{
+    [ -z "$1" ] && return
+    local sim_ready=1
+    local check_count=0
+    echo 1 > /var/run/dual_sim/$iface/sim_ready
+
+    while [ true ]; do
+        local sim_status=$($AT_CMD AT+CPIN? | grep "+CPIN:" | cut -d ':' -f 2 | tr -cd "a-z0-9A-Z")
+        [ "$sim_status" = "READY" ] && break
+        [ "$sim_status" = "SIMPIN" -o "$sim_status" = "SIMPUK" ] && echo 0 > /var/run/dual_sim/$iface/sim_ready && return
+        if [ $check_count -ge 5 ]; then
+            sim_ready=0
+            echo 0 > /var/run/dual_sim/$iface/sim_ready
+            return
+        fi
+        let check_count++
+        sleep 2
+    done
+
+    local sim=$($AT_CMD AT+QUIMSLOT? | grep "+QUIMSLOT:" | tr -cd "0-9")
+    if [ $sim_ready -eq 1 ]; then
+        local sim_num=$($AT_CMD AT+CNUM | grep "+CNUM:" | cut -d ',' -f 2 | tr -cd "0-9")
+        local sim_iccid=$($AT_CMD AT+CCID | grep "+CCID:" | tr -cd "0-9")
+        local check_count=0
+        while [ true ]; do
+            [ -z "$sim" ] && sim=$($AT_CMD AT+QUIMSLOT? | grep "+QUIMSLOT:" | tr -cd "0-9")
+            [ -z "$sim_iccid" ] && sim_iccid=$($AT_CMD AT+CCID | grep "+CCID:" | tr -cd "0-9")
+            sim_carrier=$($AT_CMD AT+COPS? | grep "+COPS:" | grep ',' | cut -d ',' -f 3 | tr -d "\"")
+            [ -z "$sim_num" ] && sim_num=$($AT_CMD AT+CNUM | grep "+CNUM:" | cut -d ',' -f 2 | tr -cd "0-9")
+            if [ -n "$sim" -a -n "$sim_iccid" -a -n "$sim_carrier" -a -n "$sim_num" ] || [ $check_count -gt 4 ]; then
+                break
+            fi
+            let check_count++
+            sleep 2
+        done
+
+        uci delete glmodem.${iface}_dual_sim$1 2>/dev/null
+        if [ -n "$sim_iccid" ]; then
+            uci set glmodem.${iface}_dual_sim$1=slot
+            uci set glmodem.${iface}_dual_sim$1.carrier="$sim_carrier"
+            uci set glmodem.${iface}_dual_sim$1.phone_number="$sim_num"
+            uci set glmodem.${iface}_dual_sim$1.iccid="$sim_iccid"
+        fi
+        uci commit glmodem
+    else
+        uci delete glmodem.${iface}_dual_sim$1 2>/dev/null
+        uci commit glmodem
+    fi
+}
+
+[ "$1" = "-h" -o "$1" = "--help" -o "$2" = "switch" -o "$2" = "sw" -o "$2" = "timing" -o "$2" = "update" -o "$2" = "amend" -o "$2" = "clear_profile" ] || exit
+[ "$1" = "-h" -o "$1" = "--help" ] && {
+    echo "Example:"
+    echo "/usr/bin/switch_sim_slot xx_bus update all"
+    echo "/usr/bin/switch_sim_slot xx_bus update current"
+    echo "/usr/bin/switch_sim_slot xx_bus switch(sw) main"
+    echo "/usr/bin/switch_sim_slot xx_bus switch(sw) [2]"
+    echo "/usr/bin/switch_sim_slot xx_bus timing start"
+    echo "/usr/bin/switch_sim_slot xx_bus timing stop"
+    exit
+}
+
+bus=$1
+if [ -z "$(echo $1|grep [0-9])" ]; then
+    bus=`get_modem_bus`
+fi
+AT_CMD="gl_modem -B $bus AT"
+if [ -n "$(echo $bus | grep ':')" -o -n "$(find /dev -name  "mhi*"|head -n 1)" ]; then
+    iface="modem_$(echo ${bus%%:*})"
+    # AT_CMD="gl_modem AT"
+else
+    iface="modem_$(echo $bus | sed 's/-/_/g' | sed 's/\./_/g')"
+fi
+timeout 1 pwd 1>/dev/null 2>&1
+if [ "$?" = "0" ];then
+    tmp_at="timeout 3 $AT_CMD"
+    AT_CMD=$tmp_at
+fi
+
+if [ "$2" = "timing" ]; then
+    if [ "$3" = "start" ]; then
+        hour=$(uci -q get glmodem.${iface}_dual.timing_hour)
+        min=$(uci -q get glmodem.${iface}_dual.timing_min)
+        echo "$min $hour * * 0,1,2,3,4,5,6 /usr/bin/switch_sim_slot $bus switch main" > /etc/gl_crontabs/crontabs.d/switch-main
+        /etc/init.d/gl_timer restart
+        sim=$(cat /tmp/run/dual_sim/$iface/current_sim)
+        redial $sim
+    elif [ "$3" = "stop" ]; then
+        if [ -e "/etc/gl_crontabs/crontabs.d/switch-main" ]; then
+            rm /tmp/gl_crontabs/crontabs.d/switch-main 2>/dev/null
+            rm /etc/gl_crontabs/crontabs.d/switch-main 2>/dev/null
+            /etc/init.d/gl_timer restart
+        fi
+        sim=$(cat /tmp/run/dual_sim/$iface/current_sim)
+        redial $sim
+    fi
+    /etc/init.d/network reload
+    exit
+fi
+
+if [ "$2" = "amend" ]; then
+    [ -n "$3" ] || exit
+    apn_use=$(uci -q get apnprofile.$3.apn_use)
+    if [ "$apn_use" = "3" ]; then
+        logger "dual_sim : here apn_use=3, from id=${3:+ $3} to get apns to dial ..."
+        serving=$($AT_CMD 'AT+QENG="servingcell"' |grep QENG |grep [0-9]|cut -d '"' -f 4 )
+        # [ "$serving" = "NOCONN" ] && exit
+        apns=$(uci -q get apnprofile.$3.apns)
+        if [ -n "$apns" ]; then
+            for i in $apns
+            do
+                num=$(echo $i | cut -d ',' -f1)
+                tmp_apn=$(echo $i | cut -d ',' -f2)
+                $AT_CMD "AT+CGDCONT=$num,\"IPV4V6\",\"$tmp_apn\""
+            done
+            # $AT_CMD "AT+CGDCONT=3,\"IPV4V6\",\"$(uci -q get network.$iface.apn)\""
+
+            $AT_CMD 'AT+CFUN=0'
+            sleep 2
+            $AT_CMD 'AT+CFUN=1'
+        fi
+    fi
+    exit
+fi
+
+if [ "$2" = "clear_profile" ]; then
+    [ -n "$3" ] || exit
+    sim1_profile=$(uci -q get glmodem.${iface}_dual.sim1_profile)
+    sim2_profile=$(uci -q get glmodem.${iface}_dual.sim2_profile)
+
+    if [ -n "$sim1_profile" -a "$sim1_profile" = "$3" ]; then
+        uci -q delete glmodem.${iface}_dual.sim1_profile
+    fi
+    if [ -n "$sim2_profile" -a "$sim2_profile" = "$3" ]; then
+        uci -q delete glmodem.${iface}_dual.sim2_profile
+    fi
+    uci commit glmodem
+    exit
+fi
+
+# start
+while [ true ];do
+    [ ! -f /var/run/switch-sim.lock ] && break
+    # echo_ssh "lock now,please check .."
+    sleep 1
+done
+
+[ -e "/var/run/dual_sim/$iface/" ] || mkdir -p /var/run/dual_sim/$iface/
+dual_lock
+
+current_sim=$($AT_CMD AT+QUIMSLOT? | grep "+QUIMSLOT:" | tr -cd "0-9")
+[ -z "$current_sim" ] && current_sim=$($AT_CMD AT+QUIMSLOT? | grep "+QUIMSLOT:" | tr -cd "0-9")
+main_sim=$(uci -q get glmodem.${iface}_dual.main_sim)
+if [ "$2" = "update" -a "$3" = "all" ]; then
+    [ "$main_sim" = "1" ] && other_sim="2" || other_sim="1"
+    tmp_iccid_main=$(uci -q get glmodem.${iface}_dual_sim$main_sim.iccid)
+fi
+
+passthrough=`uci -q get passthrough.passthrough.enable`
+if [ "$passthrough" = "1" ];then
+    iface_type=`uci -q get passthrough.passthrough.type`
+    [ "$iface_type" = "modem" ] && {
+        iptables -w 5 -t nat -S | grep "to-source" | sed 's/-A//g' | while read line;do
+            iptables -w 5 -t nat -D $line
+        done
+    }
+fi
+
+[ "$2" = "update" ] && update_sim $current_sim
+[ "$2" = "update" -a "$3" = "current" ] && {
+    # [ "$4" = "redial" ] && sleep 6
+    redial $current_sim
+    dual_unlock
+    exit
+}
+
+if [ "$2" = "switch" -o "$2" = "sw" ]; then
+    if [ "$3" = "main" -a "$main_sim" = "$current_sim" ] || [ "$3" = "$current_sim" ]; then
+        dual_unlock
+        exit
+    fi
+fi
+
+[ "$current_sim" = "1" ] && next_sim="2" || next_sim="1"
+$AT_CMD "AT+QUIMSLOT=$next_sim" 1>/dev/null 2>&1
+sleep 5
+update_sim $next_sim
+
+### judge main_sim exchange
+if [ "$2" = "update" -a "$3" = "all" -a -n "$tmp_iccid_main" -a "$tmp_iccid_main" = "$(uci -q get glmodem.${iface}_dual_sim$other_sim.iccid)" ]; then
+    profile1=$(uci -q get glmodem.${iface}_dual.sim1_profile)
+    profile2=$(uci -q get glmodem.${iface}_dual.sim2_profile)
+    if [ -n "$profile1" -o -n "$profile2" ]; then
+        uci set glmodem.${iface}_dual.sim2_profile="$profile1"
+        uci set glmodem.${iface}_dual.sim1_profile="$profile2"
+    fi
+    uci set glmodem.${iface}_dual.main_sim="$other_sim"
+    uci commit glmodem
+    logger "dual_sim : here Exchange configuration and set pre_main=$main_sim to after_main=$other_sim ..."
+fi
+
+if [ "$2" = "switch" -o "$2" = "sw" ]; then
+    redial $next_sim
+    dual_unlock
+    exit
+fi
+
+enable=$(uci -q get glmodem.${iface}_dual.enable)
+final_sim=$current_sim
+if [ "$enable" = "1" ]; then
+    main_sim=$(uci -q get glmodem.${iface}_dual.main_sim)
+    [ "$main_sim" = "$next_sim" ] && {
+        redial $next_sim
+        dual_unlock
+        exit
+    }
+    final_sim=$main_sim
+fi
+$AT_CMD "AT+QUIMSLOT=$final_sim" 1>/dev/null 2>&1
+sleep 5
+check_count=0
+while [ true ]; do
+    current_sim_status=$($AT_CMD AT+CPIN? | grep "+CPIN:" | cut -d ':' -f 2 | tr -cd "a-z0-9A-Z")
+    if [ "$current_sim_status" = "READY" -o $check_count -gt 6 ]; then
+        break
+    fi
+    let check_count++
+    sleep 2
+done
+modem_disabled=$(uci -q get network.$iface.disabled)
+[ "$2" = "update" -a "$modem_disabled" = "0" ] && redial $final_sim update &
+dual_unlock
+exit

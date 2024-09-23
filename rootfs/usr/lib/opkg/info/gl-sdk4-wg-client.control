@@ -1,0 +1,10 @@
+Package: gl-sdk4-wg-client
+Version: git-2024.234.35059-e839255-1
+Depends: libc, gl-sdk4-utils, gl-sdk4-uci, gl-sdk4-log, jansson4, resolveip, curl, ca-bundle, ca-certificates, ip-full, unzip, wireguard-tools
+Source: feeds/glinet/gl-sdk4-wg-client
+SourceName: gl-sdk4-wg-client
+Section: base
+SourceDateEpoch: 1724233459
+Architecture: mipsel_24kc
+Installed-Size: 26864
+Description:  Wireguard client api for gl-inet.

@@ -1,0 +1,27 @@
+
+config providers
+	option provider 'NordVPN'
+	option auth_type '1'
+	option procedure '1'
+	option group_id '23373'
+
+config providers
+	option provider 'FromApp'
+	option auth_type '1'
+	option procedure '0'
+	option group_id '6340'
+
+config groups
+	option group_id '23373'
+	option group_name 'NordVPN'
+	option group_type '1'
+	option auth_type '1'
+	option procedure '1'
+
+config groups
+	option group_id '6340'
+	option group_name 'FromApp'
+	option group_type '3'
+	option auth_type '1'
+	option procedure '0'
+

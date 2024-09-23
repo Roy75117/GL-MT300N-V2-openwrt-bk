@@ -1,0 +1,8 @@
+/lib/netifd/proto/ovpnserver.sh
+/usr/bin/gen_ovpn
+/etc/openvpn/scripts/ovpnserver-up
+/etc/openvpn/scripts/checkpsw.sh
+/etc/config/ovpnserver
+/usr/bin/cert_manager
+/etc/openvpn/cert/dh1024.pem
+/usr/lib/oui-httpd/rpc/ovpn-server.so

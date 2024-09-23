@@ -1,0 +1,18 @@
+
+config global
+	option anon_swap '0'
+	option anon_mount '0'
+	option auto_swap '1'
+	option auto_mount '1'
+	option delay_root '5'
+	option check_fs '0'
+
+config mount
+	option target '/overlay'
+	option uuid 'e879a41d-63f5-4fec-9762-bbbf46aa1cd3'
+	option enabled '1'
+
+config mount 'rwm'
+	option device '/dev/mtdblock6'
+	option target '/rwm'
+

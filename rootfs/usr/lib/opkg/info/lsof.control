@@ -1,0 +1,13 @@
+Package: lsof
+Version: 4.94.0-1
+Depends: libc, libtirpc
+Source: feeds/packages/utils/lsof
+SourceName: lsof
+License: Unique
+LicenseFiles: 00README
+Section: utils
+SourceDateEpoch: 1606286299
+Maintainer: Maxim Storchak <m.storchak@gmail.com>
+Architecture: mipsel_24kc
+Installed-Size: 60133
+Description:  LiSt Open Files - a diagnostic tool

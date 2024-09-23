@@ -1,0 +1,10 @@
+Package: gl-sdk4-rtty
+Version: git-2023.184.27305-4eaef58-1
+Depends: libc, rtty-openssl
+Source: feeds/glinet/gl-sdk4-rtty
+SourceName: gl-sdk4-rtty
+Section: base
+SourceDateEpoch: 1688369705
+Architecture: mipsel_24kc
+Installed-Size: 2440
+Description:  Rtty API for Gl.inet

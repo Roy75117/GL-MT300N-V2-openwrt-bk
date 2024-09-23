@@ -1,0 +1,192 @@
+#!/bin/sh
+
+. /lib/functions/gl_util.sh
+
+KILLSWITCH=$(uci get "vpnpolicy.global.kill_switch")
+WANACCESS=$(uci get "vpnpolicy.global.wan_access")
+PROXY=$(uci get "vpnpolicy.route_policy.proxy_mode")
+OVPNDIS=$(uci get  network.ovpnclient.disabled)
+WGDIS=$(uci get network.wgclient.disabled)
+HAS_RADIO="$(get_radio)"
+
+disable_killswitch()
+{
+    uci -q set firewall.safe_mode_lan.enabled='0'
+    uci -q set firewall.safe_mode_guest.enabled='0'
+    uci -q set firewall.safe_mode_mark.enabled='0'
+    uci -q set firewall.safe_mode_mark_save.enabled='0'
+    uci -q set firewall.safe_mode_mark_drop.enabled='0'
+    rm /tmp/dnsmasq.d/safe_mode_conntrack 2>/dev/null
+}
+
+enable_killswitch()
+{
+   uci set firewall.safe_mode_lan='rule'
+    uci set firewall.safe_mode_lan.name='safe_mode_lan'
+    uci set firewall.safe_mode_lan.proto='all'
+    uci set firewall.safe_mode_lan.src='lan'
+    uci set firewall.safe_mode_lan.dest='wan'
+    uci set firewall.safe_mode_lan.target='DROP'
+    uci set firewall.safe_mode_lan.enabled='1'
+
+    uci set firewall.safe_mode_guest='rule'
+    uci set firewall.safe_mode_guest.name='safe_mode_guest'
+    uci set firewall.safe_mode_guest.proto='all'
+    uci set firewall.safe_mode_guest.src='guest'
+    uci set firewall.safe_mode_guest.dest='wan'
+    uci set firewall.safe_mode_guest.target='DROP'
+    uci set firewall.safe_mode_guest.enabled='1'
+
+	#为了区分来自下游客户端的DNS请求，我们给这些请求打上0x20000的标记
+	uci set firewall.safe_mode_mark=rule
+	uci set firewall.safe_mode_mark.name='safe_mode_mark'
+	uci set firewall.safe_mode_mark.src='*'
+	uci set firewall.safe_mode_mark.device='br-+'
+	[ -n "$(which fw4)" ] && uci set firewall.safe_mode_mark.device='br-*'
+	uci set firewall.safe_mode_mark.dest_port='53'
+	uci set firewall.safe_mode_mark.set_xmark='0x20000/0x20000'
+	uci set firewall.safe_mode_mark.target='MARK'
+    uci set firewall.safe_mode_mark.enabled='1'
+
+	#将标记保存到netfilter conntrack
+	uci set firewall.safe_mode_mark_save='rule'
+	uci set firewall.safe_mode_mark_save.name='safe_mode_mark_save'
+	uci set firewall.safe_mode_mark_save.src='*'
+	uci set firewall.safe_mode_mark_save.device='br-+'
+	[ -n "$(which fw4)" ] && uci set firewall.safe_mode_mark.device='br-*'
+	uci set firewall.safe_mode_mark_save.dest_port='53'
+    #MARK的必须参数，在这里只是填充参数，没有实际作用
+	uci set firewall.safe_mode_mark_save.set_xmark='0x20000/0x20000'
+	uci set firewall.safe_mode_mark_save.extra='-j CONNMARK --save-mark --nfmask 0x20000 --ctmask 0x20000'
+    #使用MARK，作用是将规则应用到mangle表
+	uci set firewall.safe_mode_mark_save.target='MARK'
+    uci set firewall.safe_mode_mark_save.enabled='1'
+
+	#拒绝下游客户端的DNS请求通过WAN zone出去
+	uci set firewall.safe_mode_mark_drop='rule'
+	uci set firewall.safe_mode_mark_drop.name='safe_mode_mark_drop'
+	uci set firewall.safe_mode_mark_drop.dest='wan'
+	uci set firewall.safe_mode_mark_drop.dest_port='53'
+	uci set firewall.safe_mode_mark_drop.mark='0x20000/0x20000'
+	uci set firewall.safe_mode_mark_drop.target='DROP'
+    uci set firewall.safe_mode_mark_drop.enabled='1'
+
+    #dnsmasq需要识别数据请求中的标记并传递到上游
+    echo conntrack  >/tmp/dnsmasq.d/safe_mode_conntrack
+}
+
+
+enable_languest2wan()
+{
+    uci -q set firewall.@forwarding[0].enabled=1
+
+    uci set firewall.block_dns.enabled='0'
+    uci commit firewall
+    [ -n "$HAS_RADIO" ] && {
+	    uci -q set firewall.@forwarding[1].enabled=1
+    }
+}
+
+disable_languest2wan()
+{
+    uci -q set firewall.@forwarding[0].enabled=0
+
+    wgclient_state="$(cat /tmp/wireguard/wgclient_state 2>/dev/null)"
+    ovpnclient_state="$(cat /tmp/ovpnclient/ovpnclient_state 2>/dev/null)"
+    # 开关vpn，拨上之前都先使能block_dns防火墙
+    if [ "$wgclient_state" != connected -a "$ovpnclient_state" != connected ]; then
+        uci set firewall.block_dns.enabled='1'
+        uci commit firewall
+    fi
+    [ -n "$HAS_RADIO" ] && {
+	    uci -q set firewall.@forwarding[1].enabled=0
+    }
+}
+
+#工作模式0，VPN 未使能时允许LAN->WAN转发，VPN 使能时禁止LAN->WAN转发
+work_mode0()
+{
+    disable_killswitch
+	#通过VPN的使能情况来调整防火墙转发配置,如果ovpn client或者wgclient任意一个使能，禁止LAN->WAN,GUEST->WAN的数据转发,反之，则使能转发
+	if [ "$PROXY" = 0 -o "$PROXY" = 3 -o "$PROXY" = 4 -o "$PROXY" = 5 ] && [ "$OVPNDIS" = "0" -o "$WGDIS" = "0" ];then
+		disable_languest2wan
+	else
+		enable_languest2wan
+	fi
+    uci commit firewall
+}
+
+#工作模式1，关闭killswitch,任何时候允许LAN->WAN转发
+work_mode1()
+{
+    disable_killswitch
+	enable_languest2wan
+    uci commit firewall
+}
+
+#工作模式2，仅允许通过VPN上网
+work_mode2()
+{
+    enable_killswitch
+	disable_languest2wan
+    uci commit firewall
+}
+
+#工作模式3，VPN 禁用时启用killswitch，禁用LAN->WAN转发;VPN 使能时允许LAN->WAN转发，禁用killswitch
+work_mode3()
+{
+	#通过VPN的使能情况来调整防火墙转发配置,如果ovpn client或者wgclient任意一个使能，禁止LAN->WAN,GUEST->WAN的数据转发,反之，则使能转发
+	if [ "$PROXY" = 0 ] && [ "$OVPNDIS" = "0" -o "$WGDIS" = "0" ];then
+        disable_killswitch
+		enable_languest2wan
+	else
+        enable_killswitch
+		disable_languest2wan
+	fi
+    uci commit firewall
+}
+
+if [ "$OVPNDIS" = "0" -o "$WGDIS" = "0" ]; then
+	port_forward_conn_mark=1
+else
+	port_forward_conn_mark=0
+fi
+if [ -z "$(which fw4)" ]; then
+	uci set firewall.wan_in_conn_mark.enabled=$port_forward_conn_mark
+	uci set firewall.out_conn_mark_restore.enabled=$port_forward_conn_mark
+	uci set firewall.lan_in_conn_mark_restore.enabled=$port_forward_conn_mark
+	uci set firewall.swap_wan_in_conn_mark.enabled=$port_forward_conn_mark
+
+else
+	if [ "$port_forward_conn_mark" = 1 ]; then
+		mkdir -p /usr/share/nftables.d/chain-pre/mangle_prerouting
+		mkdir -p /usr/share/nftables.d/chain-post/mangle_output
+		nft -f /etc/firewall.in_conn_mark.nft
+		echo 'ip protocol tcp ct mark and 0x8000 == 0x8000 counter meta mark set ct mark comment "out_conn_mark_restore"' >/usr/share/nftables.d/chain-post/mangle_output/out_conn_mark_restore.nft
+		echo 'ip protocol udp ct mark and 0x8000 == 0x8000 counter meta mark set ct mark comment "out_conn_mark_restore"' >>/usr/share/nftables.d/chain-post/mangle_output/out_conn_mark_restore.nft
+	else
+		nft delete table ip mangle_conn_mark
+		rm -f /usr/share/nftables.d/chain-post/mangle_output/out_conn_mark_restore.nft
+	fi
+fi
+
+if [ "$KILLSWITCH" = 0 -a "$WANACCESS" = 0 ];then
+    work_mode0
+elif [ "$KILLSWITCH" = 0 -a "$WANACCESS" = 1 ];then
+    work_mode1
+elif [ "$KILLSWITCH" = 1 -a "$WANACCESS" = 0 ];then
+    work_mode2
+elif [ "$KILLSWITCH" = 1 -a "$WANACCESS" = 1 ];then
+    work_mode3
+fi
+
+case "$1" in
+    "1")
+        create_reload_service /etc/init.d/firewall
+        create_restart_service /etc/init.d/dnsmasq
+    ;;
+    *)
+esac
+
+#清除所有数据流跟踪记录
+(sleep 5; /usr/bin/clean_client_conntrack) >/dev/null 2>&1 &

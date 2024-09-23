@@ -1,0 +1,32 @@
+#!/bin/sh
+
+merge_2b() {
+    CFG=/etc/fw_env_gl.config
+
+    [ -f /proc/gl-hw-info/cfg-partition ] && dev=$(cat /proc/gl-hw-info/cfg-partition)
+
+    echo $dev | grep -q mmc || return
+
+    name=$(echo ${dev##*/})
+
+    size=$(cat /sys/class/block/$name/size | awk '{printf("0x%x",$1)}')
+    echo "$dev 0 $size" > $CFG
+
+    fw_printenv -c $CFG fw > /dev/null 2>&1 && fw_printenv -c $CFG > /tmp/merge-2b
+
+    size=$(cat /sys/class/block/$name/size | awk '{printf("0x%x",$1 * 512)}')
+    echo "$dev 0 $size" > $CFG
+
+    [ -f /tmp/merge-2b ] || return
+
+    while read line
+    do
+        name=$(echo $line | awk -F= '{print $1}')
+        value="$(echo $line | awk -F= '{print $2}')"
+        fw_setenv -c $CFG $name "$value"
+    done < /tmp/merge-2b
+
+    rm /tmp/merge-2b
+}
+
+boot_hook_add preinit_main merge_2b

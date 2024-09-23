@@ -1,0 +1,342 @@
+--[[
+    @object-name: mwan3
+    @object-desc: mwan3 settings
+--]]
+local uci = require "uci"
+local ubus = require "ubus"
+local lfactory = require "lfactory"
+
+local M = {}
+
+--[[
+    @method-type: call
+    @method-name: set_interface
+    @method-desc: set mwan3 interface detection type
+
+    @in bool      enable_check                  enable detection
+    @in string    interface                     detetction interface name
+    @in number    track_proto                   detection protocol [0: ipv4 only; 1: ipv6 only; 2: both ipv4 & ipv6]
+    @in number    track_method                  detection way [0: ping; 1: httping]
+    @in bool      enable_ssl                    enable ssl [for httping way]
+    @in number    interval                      detection interval
+    @in number    up                            the number of successful detections to treat the link as active
+    @in number    down                          the number of failure detections to treat the link as inactive
+    @in array     track_ipv4                    detection ipv4 address [array of string]
+    @in array     track_ipv6                    detection ipv6 address [array of string]
+
+    @out number   err_code                      error code
+    @out string   err_msg                       error message
+    @in-example:  {"jsonrpc":"2.0","method":"call","params":["","mwan3","set_interface",{"enable_check":true,"interface":"wan","track_proto": 0,"track_method":0,"interval":5,"up":8,"down":3,"ipv4":["8.8.4.4","8.8.8.8","208.67.222.222","208.67.220.220"],"ipv6":["2001:4860:4860::8844","2001:4860:4860::8888","2620:0:ccd::2","2620:0:ccc::2"]}],"id":1}
+    @out-example: {"jsonrpc": "2.0", "id": 1, "result": null}
+--]]
+function M.set_interface(params)
+    local enable_check = params.enable_check
+    local interface = params.interface
+    local track_proto = tonumber(params.track_proto)
+    local track_method = params.track_method
+    local enable_ssl = params.enable_ssl
+    local interval = params.interval
+    local up = params.up
+    local down = params.down
+    local track_ipv4 = params.track_ipv4
+    local track_ipv6 = params.track_ipv6
+
+    local c = uci.cursor()
+    local ipv6_interface = string.find(interface, "modem") ~= nil and interface .. "_6" or interface .. "6"
+
+    if enable_check then
+        local method = "ping"
+        if track_method == 1 then
+            method = "httping"
+            c:set("mwan3", interface, "httping_ssl", enable_ssl and 1 or 0)
+        else
+            c:set("mwan3", interface, "httping_ssl", 0)
+        end
+        c:set("gl_mwan3", interface, "track_proto", track_proto)
+        c:commit("gl_mwan3")
+
+        if track_proto == 0 then
+            c:set("mwan3", ipv6_interface, "enabled", 0)
+            c:set("mwan3", interface, "enabled", enable_check and 1)
+            c:set("mwan3", interface, "track_ip", track_ipv4)
+        elseif track_proto == 1 then
+            c:set("mwan3", interface, "enabled", 0)
+            c:set("mwan3", ipv6_interface, "enabled", enable_check and 1)
+            c:set("mwan3", ipv6_interface, "track_ip", track_ipv6)
+        else
+            c:set("mwan3", interface, "enabled", enable_check and 1)
+            c:set("mwan3", ipv6_interface, "enabled", enable_check and 1)
+            c:set("mwan3", interface, "track_ip", track_ipv4)
+            c:set("mwan3", ipv6_interface, "track_ip", track_ipv6)
+        end
+        c:set("mwan3", interface, "interval", interval)
+        c:set("mwan3", interface, "track_method", method)
+        c:set("mwan3", interface, "up", up)
+        c:set("mwan3", interface, "down", down)
+        c:set("mwan3", ipv6_interface, "interval", interval)
+        c:set("mwan3", ipv6_interface, "track_method", method)
+        c:set("mwan3", ipv6_interface, "up", up)
+        c:set("mwan3", ipv6_interface, "down", down)
+    else
+        c:set("mwan3", interface, "enabled", 0)
+        c:set("mwan3", ipv6_interface, "enabled", 0)
+    end
+
+    c:commit("mwan3")
+    ngx.timer.at(1, function()
+        ngx.pipe.spawn({'/etc/init.d/mwan3', 'restart'}):wait()
+        ngx.pipe.spawn({'/etc/init.d/network', 'reload'})
+    end)
+end
+
+--[[
+    @method-type: call
+    @method-name: set_config
+    @method-desc: mwan3 settings
+
+    @in number    mode                          mode setting[0: failover; 1: load balance]
+    @in bool      flush_track                   enable refresh tracking table [for failover mode]
+    @in array     interfaces                    interface setting
+    @in string    interfaces.interface          interface name
+    @in number    interfaces.priority           link priority [for load balance mode]
+    @in number    interfaces.weight             load weight [for load balance mode, ranges: 0-10]
+
+    @out number   ?err_code                     error code
+    @out string   ?err_msg                      error message
+    @in-example:  {"jsonrpc":"2.0","method":"call","params":["","mwan3","set_config",{"mode":0,"flush_track":false,"interfaces":[{"interface":"wan","priority":1},{"interface":"wwan","priority":2},{"interface":"tethering","priority":3}]}],"id":1}
+    @out-example: {"jsonrpc": "2.0", "id": 1, "result": null}
+--]]
+function M.set_config(params)
+    local array_v4 = {}
+    local array_v6 = {}
+    local mode = params.mode
+    local flush_track = params.flush_track
+    local interfaces = params.interfaces
+
+    local c = uci.cursor()
+    if flush_track then
+        c:set("gl_mwan3", "mwan3", "flush_track", 1)
+    else
+        c:set("gl_mwan3", "mwan3", "flush_track", 0)
+    end
+    local name = "only"
+    if mode == 1 then
+        name = "balance"
+        c:delete("gl_mwan3", "mwan3", "flush_track")
+    end
+    c:foreach(
+        "mwan3",
+        "member",
+        function(s)
+            for _, value in pairs(interfaces) do
+                if mode == 0 and string.find(s['.name'], value.interface) == 1 and string.find(s['.name'], "only") ~= nil then
+                    c:set("gl_mwan3", "mwan3", "mode", 0)
+                    c:set("mwan3", s['.name'], "metric", value.priority)
+                elseif mode == 1 and string.find(s['.name'], value.interface) == 1 and string.find(s['.name'], "balance") ~= nil then
+                    c:set("gl_mwan3", "mwan3", "mode", 1)
+                    c:set("mwan3", s['.name'], "weight", value.weight)
+                end
+            end
+        end
+    )
+    for _, value in pairs(interfaces) do
+        local weight = c:get("mwan3", value.interface.."_"..name, "weight")
+        if string.find(value.interface, "6") == nil and string.find(weight, "0") ~= 1 then
+            if string.find(value.interface, "modem") ~= nil then
+                table.insert(array_v4, value.interface.."_"..name)
+                table.insert(array_v6, value.interface.."_6_"..name)
+            else
+                table.insert(array_v4, value.interface.."_"..name)
+                table.insert(array_v6, value.interface.."6_"..name)
+            end
+        end
+    end
+    c:set("mwan3", "default_poli", "use_member", #array_v4 > 0 and array_v4 or "")
+    c:set("mwan3", "default_poli_v6", "use_member", #array_v6 > 0 and array_v6 or "")
+    c:commit("mwan3")
+    c:commit("gl_mwan3")
+
+    ngx.timer.at(1, function()
+        ngx.pipe.spawn({'/etc/init.d/mwan3', 'restart'}):wait()
+        ngx.pipe.spawn({'/etc/init.d/network', 'reload'})
+    end)
+end
+
+--[[
+    @method-type: call
+    @method-name: get_config
+    @method-desc: get mwan3 settings
+
+    @out number   mode                           mode setting[0: failover; 1: load balance]
+    @out bool     ?flush_track                   enable refresh tracking table[for failover mode]
+    @out array    interfaces                     interface setting
+    @out string   interfaces.interface           interface name
+    @out number   ?interfaces.priority           link priority [for load balance mode]
+    @out number   ?interfaces.weight             load weight [for load balance mode, ranges: 0-10]
+    @out bool     interfaces.enable_check        enable detection
+    @out number   interfaces.track_proto         detection protocol [0: ipv4 only; 1: ipv6 only; 2: both ipv4 & ipv6]
+    @out number   interfaces.track_method        detection way [0: ping; 1: httping]
+    @out number   ?interfaces.type               modem type [0: built-in modem; 1: external modem; 2: unknown modem]
+    @out bool     ?interfaces.enable_ssl         enable ssl [for httping way]
+    @out number   interfaces.interval            detection interval
+    @out number   interfaces.up                  the number of successful detections to treat the link as active
+    @out number   interfaces.down                the number of failure detections to treat the link as inactive
+    @out array    interfaces.track_ipv4          detection ipv4 address [array of string]
+    @out array    interfaces.track_ipv6          detection ipv6 address [array of string]
+
+    @out number   ?err_code                      error code
+    @out string   ?err_msg                       error messag
+    @in-example:  {"jsonrpc":"2.0","method":"call","params":["","mwan3","get_config",{}],"id":1}
+    @out-example: {"id":1,"jsonrpc":"2.0","result":{"interfaces":[{"track_proto":0,"up":8,"track_ipv4":["8.8.4.4","8.8.8.8","208.67.222.222","208.67.220.220"],"enable_ssl":true,"enable_check":true,"interval":5,"track_ipv6":["2001:4860:4860::8844","2001:4860:4860::8888","2620:0:ccd::2","2620:0:ccc::2"],"weight":3,"track_method":1,"priority":1,"down":3,"interface":"wan"},{"track_proto":0,"up":8,"track_ipv4":["8.8.4.4","8.8.8.8","208.67.222.222","208.67.220.220"],"enable_ssl":false,"enable_check":true,"interval":5,"track_ipv6":["2001:4860:4860::8844","2001:4860:4860::8888","2620:0:ccd::2","2620:0:ccc::2"],"weight":3,"track_method":0,"priority":2,"down":3,"interface":"wwan"},{"track_proto":0,"up":8,"track_ipv4":["8.8.4.4","8.8.8.8","208.67.222.222","208.67.220.220"],"enable_ssl":false,"enable_check":true,"interval":5,"track_ipv6":["2001:4860:4860::8844","2001:4860:4860::8888","2620:0:ccd::2","2620:0:ccc::2"],"weight":3,"track_method":0,"priority":3,"down":3,"interface":"tethering"},{"track_proto":0,"type":0,"up":8,"track_ipv4":["8.8.4.4","8.8.8.8","208.67.222.222","208.67.220.220"],"enable_ssl":false,"enable_check":true,"interval":5,"weight":3,"track_method":0,"priority":4,"down":3,"interface":"modem_1_1_2"},{"track_proto":0,"type":1,"up":8,"track_ipv4":["8.8.4.4","8.8.8.8","208.67.222.222","208.67.220.220"],"enable_ssl":false,"enable_check":true,"interval":5,"weight":3,"track_method":0,"priority":4,"down":3,"interface":"modem_1_1_3"}],"mode":0,"flush_track":false}}
+--]]
+function M.get_config()
+    local interfaces = {}
+    local array = {}
+    local members = {}
+
+    local c = uci.cursor()
+    local mode = tonumber(c:get("gl_mwan3", "mwan3", "mode"))
+    local flush_track = c:get("gl_mwan3", "mwan3", "flush_track") == "1"
+    local priority_info
+    local weight_info
+    if mode == 1 then
+        flush_track = nil
+    end
+    c:foreach("mwan3", "member", function(s)
+        members[s[".name"]] = s
+    end)
+
+    c:foreach("mwan3", "interface", function(s)
+        if string.find(s[".name"], "6") == nil then
+            local ifcae6 = s[".name"].."6"
+            if string.find(s[".name"], "modem") ~= nil then
+                ifcae6 = s[".name"].."_6"
+            end
+            for key ,value in pairs(members) do
+                local interface_only = s[".name"] .. "_only"
+                local interface_balance = s[".name"] .. "_balance"
+                if interface_only == key then
+                    priority_info = value.metric
+                end
+                if interface_balance == key then
+                    weight_info = value.weight
+                end
+            end
+            array = {
+                interface = s[".name"],
+                priority = priority_info and tonumber(priority_info) or 0,
+                weight = weight_info and tonumber(weight_info) or 0,
+                enable_ssl = c:get("mwan3", s[".name"], "httping_ssl") == "1",
+                track_method = s.track_method == "httping" and 1 or 0,
+                track_ipv4 = s.track_ip,
+                track_ipv6 = c:get("mwan3", ifcae6, "track_ip"),
+                interval = tonumber(s.interval),
+                up = tonumber(s.up),
+                down = tonumber(s.down)
+            }
+
+            -- judge enable
+            local enable_check = s.enabled == "1"
+            local enable_check6 = c:get("mwan3", ifcae6, "enabled") == "1"
+            local ipv6_disabled = c:get("glipv6", "globals", "enabled") == "0"
+            local track_proto_info = c:get("gl_mwan3", s[".name"], "track_proto")
+            local track_proto = track_proto_info and tonumber(track_proto_info) or 0
+
+            -- fix ipv6
+            if ipv6_disabled then
+                if track_proto == 1 then
+                    track_proto = 0
+                    enable_check = enable_check6
+                    c:set("gl_mwan3", s[".name"], "track_proto", 0)
+                    c:set("mwan3", s[".name"], "enabled", enable_check6 and 1 or 0)
+                    c:set("mwan3", ifcae6, "enabled", 0)
+                elseif track_proto == 2 then
+                    track_proto = 0
+                    c:set("gl_mwan3", s[".name"], "track_proto", 0)
+                    c:set("mwan3", ifcae6, "enabled", 0)
+                end
+            end
+
+            array.track_proto = track_proto
+            array.enable_check = enable_check
+            if track_proto == 1 then
+                array.enable_check = enable_check6
+            elseif track_proto == 2 then
+                array.enable_check = enable_check and enable_check6
+            end
+
+            -- modem type
+            local type = 2
+            if string.find(s[".name"], "modem") ~= nil then
+                local build_in_modem = lfactory.get_build_modem_port()
+                local usb = lfactory.get_usb_port()
+                if build_in_modem ~= nil and string.find(s[".name"], string.gsub(build_in_modem, "%D", '_')) ~= nil then
+                    type = 0
+                elseif usb ~= nil and string.find(s[".name"], string.gsub(usb, "%D", '_')) ~= nil then
+                    type = 1
+                end
+                array.type = type
+            end
+            table.insert(interfaces, array)
+        end
+    end)
+    c:commit("gl_mwan3")
+    c:commit("mwan3")
+
+    return {mode = mode, flush_track = flush_track, interfaces = interfaces}
+end
+
+--[[
+    @method-type: call
+    @method-name: get_status
+    @method-desc: get mwan3 status [if this interface does not enable in mwan3, read the interface status directly instead of reading from mwan3]
+
+    @out array    interfaces                     interface setting
+    @out string   interfaces.interface           interface name
+    @out number   interfaces.status_v4           interface ipv4 status [0: online; 1: offline; 2: error]
+    @out number   interfaces.percent_v4          ipv4 percentage
+    @out number   interfaces.status_v6           interface ipv6 status [0: online; 1: offline; 2: error]
+    @out number   interfaces.percent_v6          ipv6 percentage
+
+    @out number   ?err_code                      error code
+    @out string   ?err_msg                       error messag
+    @in-example:  {"jsonrpc":"2.0","method":"call","params":["","mwan3","get_status",{}],"id":1}
+    @out-example: {"id":1,"jsonrpc":"2.0","result":{"interfaces":[{"percent_v6":0,"status_v6":"offline","status_v4":"online","percent_v4":100,"interface":"wan"},{"percent_v6":0,"status_v6":"offline","status_v4":"offline","percent_v4":0,"interface":"wwan"},{"percent_v6":0,"status_v6":"offline","status_v4":"offline","percent_v4":0,"interface":"tethering"},{"percent_v6":0,"status_v6":"offline","status_v4":"online","percent_v4":0,"interface":"modem_1_1_2"},{"percent_v6":0,"status_v6":"offline","status_v4":"online","percent_v4":0,"interface":"modem_1_1_3"}]}}
+--]]
+function M.get_status()
+    local interfaces = {}
+    local conn = ubus.connect()
+    local status = conn:call("mwan3", "state", {})
+
+    for _, value in pairs(status.interfaces) do
+        local array = {
+            interface = value.interface,
+            status_v4 = value.state_v4,
+            status_v6 = value.state_v6
+        }
+        if value.state_v4 == 3 then
+            array.status_v4 = (conn:call("network.interface."..value.interface, "status", { }) or {}).up and 0 or 1
+        end
+        if value.state_v6 == 3 then
+            if string.find(value.interface, "modem") ~= nil then
+                array.status_v6 = (conn:call("network.interface."..value.interface.."_6", "status", { }) or {}).up and 0 or 1
+            else
+                array.status_v6 = (conn:call("network.interface."..value.interface.."6", "status", { }) or {}).up and 0 or 1
+            end
+        end
+        array.percent_v4 = 0
+        array.percent_v6 = 0
+        for _, v in pairs(status.policies) do
+            if v.interface == value.interface then
+                array.percent_v4 = v.percent_v4 ~= nil and v.percent_v4
+                array.percent_v6 = v.percent_v6 ~= nil and v.percent_v6
+            end
+        end
+        table.insert(interfaces, array)
+    end
+    conn:close()
+
+    return {interfaces = interfaces}
+end
+
+return M

@@ -1,0 +1,177 @@
+#!/bin/sh
+. /lib/functions.sh
+. /lib/netifd/netifd-proto.sh
+. /usr/share/libubox/jshn.sh
+
+echo_ssh() {
+    terminals=$(ls /dev/pts/* 2>/dev/null)
+    for terminal in $terminals; do
+        echo $1 >$terminal
+    done
+    echo $1 >/dev/console
+}
+
+init()
+{
+    [ -n "$(echo $INTERFACE| grep modem | grep -v "_4" | grep -v "_6")" ] || exit_script
+    [ -e "/var/run/dual_sim/$INTERFACE/" -a -e "/var/run/dual_sim/$INTERFACE/current_sim" ] || /usr/bin/switch_sim_slot $modem_bus update current #
+    [ -e "/var/run/dual_sim/$INTERFACE/main_flag" ] || echo 0 > /var/run/dual_sim/$INTERFACE/main_flag
+    [ -e "/var/run/dual_sim/$INTERFACE/secondary_flag" ] || echo 0 > /var/run/dual_sim/$INTERFACE/secondary_flag
+    [ -e "/var/run/dual_sim/$INTERFACE/switch_wait" ] || echo 0 > /var/run/dual_sim/$INTERFACE/switch_wait
+    [ -e "/var/run/dual_sim/$INTERFACE/switch_now" ] || echo 0 > /var/run/dual_sim/$INTERFACE/switch_now
+    [ -e "/var/run/dual_sim/$INTERFACE/env_send" ] || echo 0 > /var/run/dual_sim/$INTERFACE/env_send
+}
+
+exit_script()
+{
+    local flag=$(cat /var/run/dual_sim/$INTERFACE/switch_now 2>/dev/null)
+    if [ "$flag" = "1" ]; then
+        local count_flag=0
+        while [ true ]; do
+            ret=$(cat /var/run/dual_sim/$INTERFACE/switch_now 2>/dev/null)
+            if [ "$ret" = "0" ]; then
+                exit
+            fi
+            if [ "$ret" = "1" -a $count_flag -ge 5 ]; then
+                exit
+            fi
+            let count_flag++
+            sleep 6
+        done
+    else
+        exit
+    fi
+}
+
+[ -e "/var/run/dual_sim/$INTERFACE/switch_now" ] || init
+[ "$ACTION" == "switch" -o "$ACTION" == "ifup-failed" -o "$ACTION" == "ifup" ] || exit_script #action error exit
+[ "$(uci -q get glmodem.${INTERFACE}_dual.enable)" = "1" ] || exit_script #interface error exit
+
+if [ "$ACTION" == "ifup" -o "$ACTION" == "ifup-failed" ] && [ "$(cat /var/run/mwan3track/$INTERFACE/STATUS 2>/dev/null)" = "offline" ] ; then
+    proto=$(uci -q get network.$INTERFACE.proto)
+    if [ "$proto" = "qcm" -o "$proto" = "qmi" ]; then
+        reliability=$(uci -q get mwan3.$INTERFACE.reliability)
+        up_num=$(uci -q get mwan3.$INTERFACE.up)
+        check_count=0
+        ping_up=0
+        up_flag=0
+        while [ true ]; do
+            if [ $(ls /var/run/mwan3track/$INTERFACE/TRACK_* | wc -l) -gt 0 ]; then
+                for i in `ls /var/run/mwan3track/$INTERFACE/TRACK_*`; do
+                    [ "$(cat $i)" = "up" ] && let ping_up++
+                    if [ $ping_up -ge $reliability ]; then
+                        up_flag=1
+                        exit_script
+                    fi
+                done
+                ping_up=0
+            fi
+            if [ $up_flag -eq 0 -a $check_count -ge $up_num ]; then
+                # echo_ssh "ifup but ping fail ,switch now..."
+                [ "$(cat /var/run/dual_sim/$INTERFACE/switch_wait 2>/dev/null)" = "1" ] || echo 1 > /var/run/dual_sim/$INTERFACE/switch_now
+                break
+            fi
+            let check_count++
+            sleep 6
+        done
+    fi
+elif [ "$ACTION" == "switch" ]; then
+    [ "$(cat /var/run/dual_sim/$INTERFACE/switch_wait 2>/dev/null)" = "1" ] || echo 1 > /var/run/dual_sim/$INTERFACE/switch_now
+else
+    if [ "$ACTION" == "ifup-failed" ] ; then
+        # echo_ssh "=== detect modem up fail ..."
+        ifup_fail=$(($(cat /var/run/dual_sim/$INTERFACE/ifup_fail 2>/dev/null)))
+        let ifup_fail++
+        echo $ifup_fail > /var/run/dual_sim/$INTERFACE/ifup_fail
+        proto=$(uci -q get network.$INTERFACE.proto)
+        if [ "$proto" = "3g" -o -n "$(echo $DEVICE | grep 3g)" ] && [ $ifup_fail -lt 8 ]; then
+            exit_script
+        fi
+        echo 0 > /var/run/dual_sim/$INTERFACE/ifup_fail
+    else
+        exit_script
+    fi
+fi
+
+[ -n "$(ip link show $DEVICE | grep 'state DOWN')" ] && {
+    echo 0 > /var/run/dual_sim/$INTERFACE/switch_now
+    echo 0 > /var/run/dual_sim/$INTERFACE/env_send
+    logger "dual_sim : here detect to switch sim but interface down, so do not switch ..."
+    exit_script
+}
+
+track_ips=$(uci -q get glconfig.general.track_ip)
+if [ -n "$track_ips" ]; then
+    for ip in $track_ips; do
+        if ping -c1 -W1 $ip -I $DEVICE &> /dev/null; then
+            echo 0 > /var/run/dual_sim/$INTERFACE/switch_now
+            echo 0 > /var/run/dual_sim/$INTERFACE/env_send
+            logger "dual_sim : here detect to switch sim but ping $ip success, so do not switch ..."
+            exit_script
+        fi
+    done
+fi
+
+if [ -z "$modem_bus" ]; then
+    modem_bus="modem"
+    if [ -e "/proc/gl-hw-info/pcie-bus" ]; then
+        bus="$(cat /proc/gl-hw-info/pcie-bus 2>/dev/null)"
+        [ -n "$(ls /sys/bus/pci/devices/* | grep $bus)" ] && modem_bus="$bus"
+    else
+        bus=$(echo $INTERFACE | sed 's/modem_//g' | sed 's/_/-/' | sed 's/_/./')
+        [ -n "$(ls /tmp/usbnode/* | grep $bus)" ] && modem_bus="$bus"
+    fi
+fi
+
+if [ "$(cat /var/run/dual_sim/$INTERFACE/switch_wait 2>/dev/null)" = "1" ]; then
+    echo `date +%s` > /var/run/dual_sim/$INTERFACE/date
+    failover_interval=$(uci -q get glmodem.${INTERFACE}_dual.failover_interval)
+    [ -z "$failover_interval" ] && failover_interval=120
+    ti1=$(cat /var/run/dual_sim/$INTERFACE/date 2>/dev/null)
+    logger "dual_sim : here start wait to switch sim for $failover_interval second ..."
+    while true
+    do
+        ti2=`date +%s`
+        ti_ret=$(($ti2 - $ti1))
+        if [ $ti_ret -ge $failover_interval ]; then
+            # echo_ssh "time to do ..."
+            echo 0 > /var/run/dual_sim/$INTERFACE/main_flag
+            echo 0 > /var/run/dual_sim/$INTERFACE/secondary_flag
+            echo 0 > /var/run/dual_sim/$INTERFACE/switch_wait
+            echo 0 > /var/run/dual_sim/$INTERFACE/date
+            echo 1 > /var/run/dual_sim/$INTERFACE/switch_now
+            break
+        else
+            sleep 1
+            # echo_ssh "time is $ti_ret ..."
+            continue
+        fi
+    done
+fi
+
+[ "$(cat /var/run/dual_sim/$INTERFACE/switch_now 2>/dev/null)" = "1" ] || echo 1 > /var/run/dual_sim/$INTERFACE/switch_now
+current_sim=$(cat /var/run/dual_sim/$INTERFACE/current_sim 2>/dev/null)
+[ "$current_sim" = "1" ] && next_sim="2" || next_sim="1"
+
+main_sim=$(uci -q get glmodem.${INTERFACE}_dual.main_sim)
+[ "$main_sim" = "1" ] && other_sim="2" || other_sim="1"
+# echo_ssh "17_hot ACTION=$ACTION set /usr/bin/switch_sim_slot $modem_bus switch $next_sim"
+
+[ "$next_sim" = "$other_sim" ] && echo 1 > /var/run/dual_sim/$INTERFACE/secondary_flag
+[ "$(cat /var/run/dual_sim/$INTERFACE/secondary_flag 2>/dev/null)" = "1" -a "$next_sim" = "$main_sim" ] && echo 1 > /var/run/dual_sim/$INTERFACE/main_flag || echo 0 > /var/run/dual_sim/$INTERFACE/main_flag
+
+secondary_flag=$(cat /var/run/dual_sim/$INTERFACE/secondary_flag 2>/dev/null)
+main_flag=$(cat /var/run/dual_sim/$INTERFACE/main_flag 2>/dev/null)
+if [ "$secondary_flag" = "1" -a "$main_flag" = "1" ]; then
+    echo 1 > /var/run/dual_sim/$INTERFACE/switch_wait
+    echo 0 > /var/run/dual_sim/$INTERFACE/main_flag
+    echo 0 > /var/run/dual_sim/$INTERFACE/secondary_flag
+    # echo_ssh "next switch to wait ..."
+    # echo `date +%s` > /var/run/dual_sim/$INTERFACE/date
+fi
+
+logger "dual_sim : here 17_dual_sim exec:  /usr/bin/switch_sim_slot $modem_bus switch $next_sim ..."
+/usr/bin/switch_sim_slot $modem_bus switch $next_sim
+echo 0 > /var/run/dual_sim/$INTERFACE/switch_now
+echo 0 > /var/run/dual_sim/$INTERFACE/env_send
+exit 0

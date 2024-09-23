@@ -1,0 +1,14 @@
+#!/bin/sh  /etc/rc.common
+. /lib/functions/modem.sh
+
+START=99
+
+USE_PROCD=1
+
+start_service(){
+	if [ -f "/proc/gl-hw-info/build-in-modem" -a -n "$(uci -q get glmodem.signal.enable)" ];then
+		procd_open_instance
+		procd_set_param command /usr/bin/modem_manager.lua
+		procd_close_instance
+	fi
+}

@@ -1,0 +1,12 @@
+Package: libdbus
+Version: 1.13.18-12
+Depends: libc, libpthread
+Source: feeds/packages/utils/dbus
+SourceName: libdbus
+License: AFL-2.1
+Section: utils
+SourceDateEpoch: 1644252565
+CPE-ID: cpe:/a:freedesktop:dbus
+Architecture: mipsel_24kc
+Installed-Size: 102893
+Description:  Simple interprocess messaging system (library)

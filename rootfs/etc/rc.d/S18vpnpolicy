@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+
+
+START=18
+
+start() {
+        enable=$(uci get "vpnpolicy.global.kill_switch")
+        [ "$enable" = 2 ] && {
+            mkdir -p /tmp/dnsmasq.d/
+            echo conntrack  >/tmp/dnsmasq.d/safe_mode_conntrack
+        }
+        uci set network.policy_direct_rt=rule
+        uci set network.policy_direct_rt.lookup='main'
+        uci set network.policy_direct_rt.suppress_prefixlength='0'
+        uci set network.policy_direct_rt.priority='1100'
+        uci set network.policy_default_rt_vpn=rule
+        uci set network.policy_default_rt_vpn.mark='0x8000/0xc000'
+        uci set network.policy_default_rt_vpn.lookup='8000'
+        uci set network.policy_default_rt_vpn.priority='1101'
+        uci set network.policy_default_rt_vpn.invert='1'
+        uci set network.policy_direct_rt6=rule6
+        uci set network.policy_direct_rt6.lookup='main'
+        uci set network.policy_direct_rt6.suppress_prefixlength='0'
+        uci set network.policy_direct_rt6.priority='1100'
+        uci set network.policy_default_rt_vpn6=rule6
+        uci set network.policy_default_rt_vpn6.mark='0x8000/0xc000'
+        uci set network.policy_default_rt_vpn6.lookup='8000'
+        uci set network.policy_default_rt_vpn6.priority='1101'
+        uci set network.policy_default_rt_vpn6.invert='1'
+        uci commit network
+
+		ipset create via_vpn_domain hash:net
+		ipset create bypass_vpn_domain hash:net
+		ipset create via_vpn_mac hash:mac
+		ipset create bypass_vpn_mac hash:mac
+		mkdir -p /tmp/resolv.conf.d
+
+	vpn_ser_enabled=`uci -q get vpnpolicy.global.vpn_server_policy`
+	if [ "$vpn_ser_enabled" == "1" ];then
+		uci set firewall.vpn_server_policy="include"
+		uci set firewall.vpn_server_policy.type="script"
+		uci set firewall.vpn_server_policy.path="/etc/firewall.vpn_server_policy.sh"
+		uci set firewall.vpn_server_policy.reload="1"
+		uci set firewall.vpn_server_policy.enabled="1"
+		uci commit firewall
+	fi
+
+
+}

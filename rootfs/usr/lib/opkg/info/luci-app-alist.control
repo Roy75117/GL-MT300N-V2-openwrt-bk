@@ -1,0 +1,11 @@
+Package: luci-app-alist
+Version: 1.1.1
+Depends: libc, alist
+Source: /feed/luci-app-alist
+SourceName: luci-app-alist
+Section: luci
+SourceDateEpoch: 1725649651
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 4068
+Description:  LuCI support for alist

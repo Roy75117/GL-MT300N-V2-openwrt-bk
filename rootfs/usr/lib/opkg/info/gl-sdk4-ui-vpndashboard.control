@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-vpndashboard
+Version: git-2024.072.11614-24e97f9-1
+Depends: libc, gl-sdk4-ui-core
+Source: feeds/glinet/gl-ui4.0/module/vpndashboard
+SourceName: gl-sdk4-ui-vpndashboard
+Section: base
+SourceDateEpoch: 1710213214
+Architecture: mipsel_24kc
+Installed-Size: 73313
+Description:  gl-sdk4-ui-vpndashboard

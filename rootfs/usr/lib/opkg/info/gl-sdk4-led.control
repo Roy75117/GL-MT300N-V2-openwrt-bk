@@ -1,0 +1,10 @@
+Package: gl-sdk4-led
+Version: git-2023.184.25910-7d39d13-1
+Depends: libc, gl-sdk4-base-files
+Source: feeds/glinet/gl-sdk4-led
+SourceName: gl-sdk4-led
+Section: base
+SourceDateEpoch: 1688368310
+Architecture: mipsel_24kc
+Installed-Size: 2493
+Description:  Oui Support for led

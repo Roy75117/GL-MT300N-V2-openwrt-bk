@@ -1,0 +1,16 @@
+Package: perl
+Version: 5.28.1-7
+Depends: libc, libpthread
+Source: feeds/packages/lang/perl
+SourceName: perl
+License: GPL-1.0-or-later Artistic-1.0-Perl
+LicenseFiles: Copying Artistic README
+Section: lang
+SourceDateEpoch: 1671393745
+CPE-ID: cpe:/a:perl:perl
+Maintainer: Marcel Denia <naoir@gmx.net>, Philip Prindeville <philipp@redfish-solutions.com>
+Architecture: mipsel_24kc
+Installed-Size: 1065272
+Description:  Perl is a stable, cross platform programming language.
+ It is used for mission critical projects in the public and private sectors
+ and is widely used to program web applications of all needs.

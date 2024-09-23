@@ -1,0 +1,21 @@
+{
+    "home": {
+        "reboot": "Neustart",
+        "logout": "Abmelden",
+        "default": "Standard",
+        "dark": "Dunkel",
+        "language": "Sprache",
+        "theme": "Thema",
+        "footer": {
+            "copyright": "Copyright",
+            "desc": "Alle Rechte vorbehalten"
+        },
+        "no_internet": "Keine Internetverbindung! Finden Sie neue Netzwerke, um die Verbindung wiederherzustellen.",
+        "reboot_warning": "Sind Sie sicher, dass sie den Router neu starten wollen?",
+        "classic": "Klassisch"
+    },
+    "menu_vpn": "VPN",
+    "menu_network": "Netzwerk",
+    "menu_system": "System",
+    "menu_applications": "Anwendungen"
+}

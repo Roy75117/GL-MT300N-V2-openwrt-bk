@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if [ "$ACTION" == "down" ];then
+	if [ "$INTERFACE" == "$(cat /proc/gl-hw-info/wan)" -a -n "$INTERFACE" ];then
+		ip -6 route show table main | grep "dev $INTERFACE" | sed 's/linkdown.*$//g' | sed 's/expires.*$//g'| while read line;do
+			ip -6 route del table main $line
+		done
+	fi
+fi

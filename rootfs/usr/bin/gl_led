@@ -1,0 +1,77 @@
+#!/bin/sh
+
+. /lib/functions/gl_util.sh
+
+check_vpn_status() {
+	vpn_states="/tmp/wireguard/wgclient_state /tmp/ovpnclient/ovpnclient_state"
+	for state in $vpn_states;
+	do
+		[ -f "$state" ] || continue;
+		[ "$(cat $state)" = "connected" ] && {
+			vpn_online_led_display
+			return
+		}
+	done
+
+	for state in $vpn_states;
+	do
+		[ -f "$state" ] || continue;
+		[ "$(cat $state)" = "connecting" ] && {
+			vpn_offline_led_display
+			return
+		}
+	done
+	vpn_off_led_display
+}
+
+check_interface_network_status() {
+	_json_set_var JSON_CUR $1
+	json_get_vars interface status_v4 status_v6
+	[ -n "$interface" ] && {
+		local proto=`uci -q get gl_mwan3.$interface.track_proto`
+		case "$proto" in
+			"0")
+				[ "$status_v4" == "online" -o "$status_v6" == "online" ] && status="1"
+				;;
+			"1")
+				[ "$status_v4" == "online" ] && status="1"
+				;;
+			"2")
+				[ "$status_v6" == "online" ] && status="1"
+				;;
+			*)
+		esac
+	}
+	json_select ..
+}
+
+json_init
+while true
+do
+	status="0"
+	check_vpn_status
+
+	#mwan3 will not be used in the AP/WDS mode
+	mode=`uci -q get glconfig.general.mode`
+	if [ "$mode" = "ap" -o "$mode" = "wds" ];then
+		[ "$status" = 1 ] && sleep 10
+		lan_status=`ubus call network.interface.lan status | jsonfilter -q -e @.up`
+		if [ "$lan_status" = "true" ];then
+			for track_ip in `uci get glconfig.general.track_ip`
+			do
+				ping "$track_ip" -c1 -W1 | grep "1 packets rec" && status="1" && break
+			done
+		fi
+	else
+		json_load "$(ubus call mwan3 state)"
+		json_for_each_item check_interface_network_status interfaces
+	fi
+
+	if [ "$status" = "0" ];then
+		offline_led_display
+	else
+		online_led_display
+	fi
+
+	sleep 5
+done

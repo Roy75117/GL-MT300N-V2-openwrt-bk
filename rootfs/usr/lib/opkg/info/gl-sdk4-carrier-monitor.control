@@ -1,0 +1,11 @@
+Package: gl-sdk4-carrier-monitor
+Version: git-2023.065.44692-e8e2ff2-1
+Depends: libc, libnl-tiny1
+Source: feeds/glinet/gl-sdk4-carrier-monitor
+SourceName: gl-sdk4-carrier-monitor
+Section: base
+SourceDateEpoch: 1678105492
+Architecture: mipsel_24kc
+Installed-Size: 2476
+Description:  Monitor the carrier status of all network device. And call
+ etc/hotplug.d/carrier/* use hotplug-call when the carrier has changed.

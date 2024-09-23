@@ -1,0 +1,33 @@
+{
+    "multiwan": {
+        "tips": "Der Router unterstützt den gleichzeitigen Anschluss mehrerer Netzwerkschnittstellen. Sie können festlegen, wie diese verwendet werden sollen.",
+        "failover_desc": "Ausfallsicherung: Falls die verwendete Verbindung fehlschlägt, wird der Router automatisch auf eine andere Schnittstelle umschalten.",
+        "mode_label": "Modus",
+        "mode_failover_tips": "Der Router wählt automatisch die verfügbare Schnittstelle mit der höchsten Priorität.",
+        "balancing_desc": "Lastverteilung: Verwendung mehrerer Schnittstellen zur selben Zeit, um die gesamte Bandbreite des Routers zu vergrößern.",
+        "track_desc": "Der Router wird den Verbindungsstatus zur Ziel-IP-Adresse überwachen, um zu bestimmen ob die Schnittstelle verfügbar ist.",
+        "mode_balancing_tips": "Das System weist den neuen Verbindungen die Schnittstellen gemäß dem Lastverhältnis zu.",
+        "mode_balancing_note": "Hinweis: Es ist nicht sichergestellt, dass bestehende Verbindungen oder Daten dem Lastverhältnis entsprechen.",
+        "failover_label": "Ausfallsicherung",
+        "balancing_label": "Lastverteilung",
+        "track_title": "Methode der Schnittstellen-Überwachung",
+        "physical_state_monitor": "Internet-Zugriff stets verfügbar, wenn die Schnittstelle verbunden ist",
+        "priority_title": "Priorität der Schnittstelle",
+        "ratio_title": "Lastverhältnis",
+        "flush_track_tips": "Falls diese Option aktiviert ist und die Netzwerkschnittstelle sich ändert, wird der Router alle existierenden Daten-Verbindungen aktualisieren, um die höhere Priorisierung der Netzwerkschnittstelle sicherzustellen. Die verhindert den unnötigen Verlust von Daten, kann aber zur Verbmeinungstrennung führen (manche VPNs verbinden sich nicht sofort erneut).",
+        "enable_check_label": "Aktiviere die Überprüfung der Internetverbindung",
+        "flush_track_label": "Erzwinge das neu laden von Verbindungen",
+        "interface_state_label": "Netzwerk Status",
+        "track_enable_tips": "Falls die Schnittstellen-Überwachung desaktiviert ist, wird das Gerät immer denken, dass eine Internetverbindung besteht, wenn die Schnittstelle verbundne ist (z.B. Das Kabel ist angeschlossen und IP-Adresse wurde zugeteilt, WLAN-Verbindung wurde hergestellt).",
+        "track_proto_label": "Protokoll überwachen",
+        "track_method_label": "Überwachungsbefehl",
+        "interval_label": "Überwachungsabstand",
+        "fault_condition_label": "Wechsel zur Fehler-Bedingung",
+        "available_condition_label": "Wechsel zur Verfügbarkeits-Bedingung",
+        "success_count": "$$$$ mal Erfolgreich",
+        "fault_count": "$$$$ mal Fehlgeschlagen",
+        "track_addr_label": "IP-Adresse überwachen",
+        "both_label": "Beide"
+    },
+    "menu_multiwan": "Multi-WAN"
+}

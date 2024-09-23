@@ -1,0 +1,12 @@
+Package: libubox-lua
+Version: 2022-05-15-d2223ef9-1
+Depends: libc, libubox20220515, liblua5.1.5
+Source: package/libs/libubox
+SourceName: libubox-lua
+License: ISC
+Section: libs
+SourceDateEpoch: 1654630618
+Maintainer: Felix Fietkau <nbd@nbd.name>
+Architecture: mipsel_24kc
+Installed-Size: 3995
+Description:  Lua binding for the OpenWrt Basic utility library

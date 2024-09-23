@@ -1,0 +1,12 @@
+{
+    "index": 30,
+    "view": "cloud",
+    "title": {
+        "2c": "GoodCloud",
+        "2b": "Cloud"
+    },
+    "level": 2,
+    "parent": "applications",
+    "parent_icon": "application",
+    "parent_index": 20
+}

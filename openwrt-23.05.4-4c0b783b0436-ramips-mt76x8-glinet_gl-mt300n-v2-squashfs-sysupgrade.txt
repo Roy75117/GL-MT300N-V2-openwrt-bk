@@ -1,0 +1,3 @@
+openwrt-23.05.4-4c0b783b0436-ramips-mt76x8-glinet_gl-mt300n-v2-squashfs-sysupgrade
+
+sha256sum: bb736757a6369a8457dc19d727fae4a85199cb02813b356e33b532e5e24767a9

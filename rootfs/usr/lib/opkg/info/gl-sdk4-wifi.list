@@ -1,0 +1,7 @@
+/etc/uci-defaults/02_gl_wifi
+/usr/lib/lua/wpacli.so
+/usr/lib/oui-httpd/rpc/wifi
+/usr/lib/lua/gl/scan.so
+/usr/lib/lua/regulatory.so
+/etc/hotplug.d/ieee80211/99-gl-detect
+/usr/lib/lua/gl/wifi.lua

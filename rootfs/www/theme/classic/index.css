@@ -1,0 +1,122 @@
+/* classic */
+:root {
+  --primary: var(--gl-teal-500);
+  --primary-hover: var(--gl-teal-700);
+  --primary-disabled: var(--gl-teal-100);
+  --primary-background: var(--gl-teal-50);
+
+  --secondary: var(--gl-green-700);
+  --secondary-hover: var(--gl-green-800);
+  --secondary-disabled: var(--gl-teal-100);
+  --secondary-background: var(--gl-teal-50);
+
+  --error: var(--gl-red-500);
+  --error-hover: var(--gl-red-700);
+  --error-disabled: var(--gl-red-100);
+  --error-background: var(--gl-red-50);
+
+  --info: var(--gl-teal-900);
+  --info-background: var(--gl-teal-50);
+
+  --success: var(--gl-green-500);
+  --success-background: var(--gl-green-50);
+
+  --warning: var(--gl-yellow-500);
+  --warning-background: var(--gl-yellow-50);
+
+  /* 顶部标题栏标题色 */
+  --text-header: var(--gl-gray-800);
+  /* 导航标题色，用于页面标题、面包屑导航 */
+  --text-nav: var(--gl-gray-900);
+  /* 标题色，用于卡片标题、页签 */
+  --text-title: var(--gl-gray-800);
+  /* 子标题色，用于组标题 */
+  --text-subtitle: var(--gl-gray-700);
+  /* 强文本色，用于重要内容 */
+  --text-strong: var(--gl-black);
+  /* 标准文本色，用于参数值、输入框内容 */
+  --text-regular: var(--gl-gray-800);
+  /* 弱文本色，用于参数名、图标 */
+  --text-weak: var(--gl-gray-700);
+  /* 提示文本色，用于输入框提示 */
+  --text-hint: var(--gl-gray-300);
+  /* 提示文本色，用于输入框提示 */
+  --text-disabled: var(--gl-gray-400);
+  /* 标记文本色 */
+  --text-badge: var(--gl-gray-500);
+
+  /* 主背景色，页面最底层背景 */
+  --background-main: var(--gl-gray-200);
+  /* 顶部标题栏背景色 */
+  --background-header: var(--gl-white);
+  /* 页面内容背景色 */
+  --background-content: var(--gl-gray-100);
+  /* 卡片背景色 */
+  --background-card: var(--gl-white);
+  /* 标题背景色，用于卡片标题、页签 */
+  --background-title: var(--gl-gray-50);
+  /* 子标题背景色，用于组标题 */
+  --background-subtitle: var(--gl-gray-50);
+  /* 展开面板背景色 */
+  --background-collapse: var(--gl-gray-100);
+  /* 控件背景色，用于 switch、toggle 等 */
+  --background-controller: var(--gl-white);
+  /* 禁用背景色 */
+  --background-disabled: var(--gl-gray-100);
+  /* 标记背景色 */
+  --background-badge: var(--gl-gray-200);
+
+  --border: var(--gl-gray-200);
+  --divider: var(--gl-gray-100);
+
+  --shadow: var(--gl-gray-200);
+  --mask: rgba(16, 18, 35, 0.24);
+  --ssid-background: rgba(120, 122, 147, 0.24);
+
+  /* logo */
+  --logo: var(--gl-gray-800);
+
+  /* 左侧导航栏 */
+  --text-menu: var(--gl-gray-100);
+  --text-menu-hover: var(--gl-white);
+  --text-menu-active: var(--gl-teal-300);
+  --background-menu: var(--gl-gray-800);
+  --background-submenu: var(--gl-gray-900);
+
+  /* 可操作 icon */
+  --icon: var(--gl-gray-500);
+  --icon-hover: var(--gl-gray-600);
+  --icon-active: var(--gl-gray-200);
+  --icon-disabled: var(--gl-gray-200);
+
+  /* 状态面板 */
+  --text-status-panel: var(--gl-gray-500);
+  --text-status-panel-active: var(--gl-green-300);
+  --text-status-panel-hover: var(--gl-white);
+  --text-status-panel-active-hover: var(--gl-green-700);
+
+  /* 状态面板背景 */
+  --background-status-panel: radial-gradient(
+    ellipse 362px 1075px,
+    #2d3441,
+    #286b64
+  );
+
+  /* 登录面板背景 */
+  --background-login: -webkit-radial-gradient(
+      50% 60%,
+      circle,
+      #2d303f,
+      transparent
+    ),
+    -webkit-radial-gradient(50% 80%, circle, #2d303f, transparent),
+    -webkit-radial-gradient(0 -50%, circle, #287168, transparent),
+    -webkit-radial-gradient(80% 80%, circle, #067e84, transparent),
+    -webkit-radial-gradient(0% 100%, circle, #109b80, transparent);
+
+  /* 滑动条颜色 */
+  --menu-scrollbar: rgba(145, 149, 170, 0.4);
+  --menu-scrollbar-hover: rgba(145, 149, 170, 0.4);
+  --scrollbar: rgba(145, 149, 170, 0.4);
+  --scrollbar-hover: rgba(145, 149, 170, 0.4);
+}

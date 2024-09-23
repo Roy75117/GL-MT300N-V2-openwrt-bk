@@ -1,0 +1,19 @@
+Package: ip6tables-nft
+Version: 1.8.7-7
+Depends: libc, kmod-ip6tables, xtables-nft
+Provides: ip6tables
+Alternatives: 300:/usr/sbin/ip6tables:/usr/sbin/xtables-nft-multi, 300:/usr/sbin/ip6tables-restore:/usr/sbin/xtables-nft-multi, 300:/usr/sbin/ip6tables-save:/usr/sbin/xtables-nft-multi
+Source: package/network/utils/iptables
+SourceName: ip6tables-nft
+License: GPL-2.0
+Section: net
+SourceDateEpoch: 1661640100
+CPE-ID: cpe:/a:netfilter_core_team:iptables
+Architecture: mipsel_24kc
+Installed-Size: 250
+Description:  Extra ip6tables nftables nft binaries.
+ ip6tables-nft
+ ip6tables-nft-restore
+ ip6tables-nft-save
+ ip6tables-translate
+ ip6tables-restore-translate

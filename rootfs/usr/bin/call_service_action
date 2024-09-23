@@ -1,0 +1,43 @@
+#!/bin/sh
+
+do_reload_service()
+{
+    local p
+    [ -d /var/run/gl_reload_service/ ] || return
+    services=$(ls /var/run/gl_reload_service/* 2>/dev/null)
+    for s in $services;do
+        p="$(cat $s)"
+        [ -x "$p" ] && {
+            $p reload 2>/dev/null
+            rm $s
+        }
+    done
+}
+
+do_restart_service()
+{
+    local p
+    [ -d /var/run/gl_restart_service/ ] || return
+    services=$(ls /var/run/gl_restart_service/* 2>/dev/null)
+    for s in $services;do
+        p="$(cat $s)"
+        [ -x "$p" ] && {
+            $p restart 2>/dev/null
+            rm $s
+        }
+    done
+}
+
+for i in $(seq 30);do
+    [ -f "/var/run/apply_killswitch_done" ] && [ -f "/var/run/route_policy_done" ] && \
+    [ -f "/var/run/ovpnclient-up_done" ] && [ -f "/var/run/wgclient-route-update_done" ] && {
+        break;
+    }
+    sleep 1
+done
+
+do_reload_service
+do_restart_service
+
+rm -f /var/run/apply_killswitch_done  /var/run/route_policy_done \
+    /var/run/ovpnclient-up_done  /var/run/wgclient-route-update_done 2>/dev/null

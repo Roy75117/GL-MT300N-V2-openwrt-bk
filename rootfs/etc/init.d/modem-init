@@ -1,0 +1,24 @@
+#!/bin/sh  /etc/rc.common
+. /lib/functions/modem.sh
+
+START=19
+
+USE_PROCD=1
+
+start_service(){
+	[ -e /sbin/fw4 ] && [ ! -d /usr/share/nftables.d/chain-pre/mangle_postrouting ] && \
+		mkdir -p /usr/share/nftables.d/chain-pre/mangle_postrouting
+	#Decompress apn data base
+	[ -f "/var/run/modem/apn-config.json" ] || {
+		mkdir -p /var/run/modem/
+		cp /www/js/apn-config.json.gz /var/run/modem/apn-config.json.gz
+		gzip -d /var/run/modem/apn-config.json.gz
+	}
+
+	if [ -f "/proc/gl-hw-info/build-in-modem" -a -f "/usr/bin/modem_AT" ];then
+		local bus=`get_modem_bus`
+		procd_open_instance
+		procd_set_param command /usr/bin/modem_AT -B $bus
+		procd_close_instance
+	fi
+}

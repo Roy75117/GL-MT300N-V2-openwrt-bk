@@ -1,0 +1,12 @@
+{
+    "index": 60,
+    "view": "ipv6",
+    "tite": "IPv6",
+    "level": 2,
+    "parent": "network",
+    "parent_icon": "network",
+    "parent_index": 30,
+    "show_mode": [
+        "router"
+    ]
+}

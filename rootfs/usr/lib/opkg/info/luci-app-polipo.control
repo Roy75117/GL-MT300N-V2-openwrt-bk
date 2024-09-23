@@ -1,0 +1,11 @@
+Package: luci-app-polipo
+Version: git-20.108.38431-8f34e10
+Depends: libc, luci-compat, polipo
+Source: feeds/luci/applications/luci-app-polipo
+SourceName: luci-app-polipo
+Section: luci
+SourceDateEpoch: 1682804847
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 3228
+Description:  LuCI Support for the Polipo Proxy

@@ -1,0 +1,3 @@
+* * * * * . /lib/functions/modem.sh;check_ip
+* * * * * sleep 30;. /lib/functions/modem.sh;check_ip
+*/2 * * * * . /lib/functions/modem.sh;modem_net_monitor

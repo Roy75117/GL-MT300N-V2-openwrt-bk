@@ -1,0 +1,97 @@
+#!/bin/sh /etc/rc.common
+. /lib/functions/modem.sh
+
+START=99
+STOP=99
+
+exec_init()
+{
+    check_at=0
+    at_ok=0
+    while [ true ]; do
+        gl_modem -B $modem_bus AT AT | grep -q 'OK'
+        if [ "$(echo $?)" = "0" ]; then
+            at_ok=1
+            break
+        fi
+        if [ $check_at -ge 5 ]; then
+            return
+        fi
+        let check_at++
+        sleep 10
+    done
+    if [ $at_ok -eq 1 ]; then
+        ims_flag=$(gl_modem -B $modem_bus AT 'AT+QCFG="ims"' | grep '+QCFG:' | cut -d ',' -f 2 | tr -cd "0-9")
+        pcie_net=$(gl_modem -B $modem_bus AT 'AT+QPCIE="net"' | grep '+QPCIE:' |cut -d ',' -f 2 | tr -cd "0-9")
+        pcie_id=$(gl_modem -B $modem_bus AT 'AT+QPCIE="id"' | grep '0x1002,0x1eac,0x200c,0x1eac')
+        if [ $pcie_flag -eq 1 ]; then
+            [ -n "$ims_flag" -a "$ims_flag" = "0" ] && gl_modem -B $modem_bus AT 'AT+QCFG="ims",1'
+            [ -n "$pcie_net" -a "$pcie_net" = "1" ] && gl_modem -B $modem_bus AT 'AT+QPCIE="net",0'
+            [ -n "$pcie_id" ] && gl_modem -B $modem_bus AT 'AT+QPCIE="id",0x0304,0x17cb,0x0307,0x17cb'
+            gl_modem -B $modem_bus AT 'AT&F'
+            # wait switch over
+            check_count=0
+            while [ true ]; do
+                if [ ! -e "/var/run/switch-sim.lock" ]; then
+                    break
+                fi
+                if [ $check_count -ge 40 ]; then
+                    logger "dual_sim : here switch-sim.lock, exec init fail ..."
+                    return
+                fi
+                let check_count++
+                sleep 2
+            done
+
+            current_sim=$(gl_modem -B $modem_bus AT AT+QUIMSLOT? | grep "+QUIMSLOT:" | tr -cd "0-9")
+            [ "$current_sim" = "2" ] && {
+                gl_modem -B $modem_bus AT "AT+QUIMSLOT=1" 1>/dev/null 2>&1
+            }
+            /usr/bin/switch_sim_slot $modem_bus update current
+            sim1=$(uci -q get glmodem.${modem_iface}_dual_sim1.iccid)
+            sim2=$(uci -q get glmodem.${modem_iface}_dual_sim2.iccid)
+
+
+            if [ -n "$sim1" ]; then
+                [ "$current_sim" = "1" ] || {
+                    gl_modem -B $modem_bus AT "AT+QUIMSLOT=1" 1>/dev/null 2>&1
+                    /usr/bin/switch_sim_slot $modem_bus update current
+                }
+            elif [ -n "$sim2" ]; then
+                [ "$current_sim" = "2" ] || {
+                    gl_modem -B $modem_bus AT "AT+QUIMSLOT=2" 1>/dev/null 2>&1
+                    /usr/bin/switch_sim_slot $modem_bus update current
+                }
+            fi
+            logger "dual_sim : here exec 99-modem init success ..."
+
+            if [ "$(cat /etc/firmware_type 2>/dev/null)" = "2b" ]; then
+                check_count=0
+                while [ true ]; do
+                    local sim_status=$(gl_modem -B $modem_bus AT AT+CPIN? | grep "+CPIN:" | cut -d ':' -f 2 | tr -cd "a-z0-9A-Z")
+                    [ "$sim_status" = "READY" ] && break
+                    if [ $check_count -ge 5 ]; then
+                        break
+                    fi
+                    let check_count++
+                    sleep 2
+                done
+
+                local bus=`get_modem_iface`
+                local modem=`uci -q show network.$bus`
+                if [ "$modem" = "" ];then
+                    gl_modem -B $modem_bus connect-auto 2>/dev/null
+                fi
+            fi
+        fi
+    fi
+}
+
+start() {
+        pcie_flag=0
+        [ -e "/proc/gl-hw-info/pcie-bus" ] && pcie_flag=1
+        [ -e "/proc/gl-hw-info/build-in-modem" -a -e "/proc/gl-hw-info/pcie-bus" -a -n "$(ls /dev/ | grep -E 'ttyU|mhi_')" ] || exit 0
+        modem_bus=$(get_modem_bus)
+        modem_iface=$(get_modem_iface $modem_bus)
+        [ -z "$(uci -q show network.$modem_bus)" ] && sleep 10 && exec_init &
+}

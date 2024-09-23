@@ -1,0 +1,17 @@
+. /lib/functions.sh 
+
+uci set glconfig.general.mode="router"
+uci commit glconfig
+
+cloud_enable=`uci get gl-cloud.@cloud[0].enable`
+if [ "$cloud_enable" == "1" ];then
+	ubus call gl-cloud alive
+fi
+
+uci -q delete network.stabridge
+uci commit network
+
+uci -q delete mwan3.lan
+uci commit mwan3
+/etc/init.d/mwan3 reload
+/etc/init.d/edgerouter restart

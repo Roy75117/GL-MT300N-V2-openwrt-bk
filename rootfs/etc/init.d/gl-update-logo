@@ -1,0 +1,13 @@
+#!/bin/sh /etc/rc.common
+
+START=11
+
+start() {
+    [ "$(cat /etc/firmware_type 2>/dev/null)" = "2b" ] || exit 0
+
+    /usr/bin/gl-update-logo &
+}
+
+stop() {
+    pid=$(ps | grep gl-update-logo | grep -v grep | awk '{print $1}') && kill -9 $pid
+}

@@ -1,0 +1,3 @@
+/etc/init.d/gl_tethering
+/etc/hotplug.d/usb/31-tethering
+/usr/lib/oui-httpd/rpc/tethering

@@ -1,0 +1,140 @@
+#!/bin/sh
+. /usr/share/libubox/jshn.sh
+. /lib/functions/gl_util.sh
+
+# 1.downloading
+# 2.download_failed
+# 3.download_ok
+# 4.verify_ok
+# 5.verify_failed
+# 6.upgrading
+# 7.upgrade_failed
+# 8.local_upgrade
+# 9.verify firmware signature fial
+
+firmware_path="$1"
+firmware_sha256sum="$2"
+keepconfig_option="$3"
+keepipk_option="$4"
+
+model=$(get_model)
+echo $model
+if [ "$keepipk_option" == "1"  ]; then
+    keepipk_option="-k"
+else
+    keepipk_option=""
+fi
+
+[ "$keepconfig_option" == "1"  ] && keepconfig_option=""
+[ "$keepconfig_option" == "0"  ] && keepconfig_option="-n"
+
+
+# kill one_click_upgrade if it is executing
+[ -f /tmp/one_click_upgrade_pid ] && {
+	cat /tmp/one_click_upgrade_pid | xargs kill -9
+	ps | grep "curl -Ls --connect-timeout 5" | grep -v grep | xargs kill -9
+	sleep 1
+}
+echo $$ > /tmp/one_click_upgrade_pid
+
+echo '1' > /tmp/upgrade_status
+logger -t one_click_upgrade "Begin download firmware......"
+
+(while true; do
+    sleep 5
+    perc=$(du -a /tmp/firmware.img | awk '{print $1}')
+
+    sleep 25
+    perc_s=$(du -a /tmp/firmware.img | awk '{print $1}')
+
+    if [ "$perc" -eq "$perc_s" ]; then
+        ps | grep "curl -Ls --connect-timeout 5" | grep -v grep | xargs kill -9
+        break;
+    fi
+done) &
+
+rm -f /tmp/firmware.img
+curl -Ls --connect-timeout 5 $firmware_path -o /tmp/firmware.img >> /dev/null
+
+### Check firmware
+[ -f /tmp/firmware.img ] || {
+    echo '2' > /tmp/upgrade_status
+    rm /tmp/one_click_upgrade_pid
+    logger -t one_click_upgrade "Download firmware failed,exit,please try again!"
+    exit 0
+}
+
+echo '3' > /tmp/upgrade_status
+logger -t one_click_upgrade "Download firmware success."
+
+### check sha256sum
+sha256sum=$(sha256sum /tmp/firmware.img |awk '{print $1}')
+if [ "$firmware_sha256sum" != "$sha256sum"  ]; then
+    echo '5' > /tmp/upgrade_status
+    rm /tmp/one_click_upgrade_pid
+    logger -t one_click_upgrade "Check the firmware sha256sum failed, exit,please try again!"
+    exit 0
+else
+    echo '4' > /tmp/upgrade_status
+    logger -t one_click_upgrade "Check the firmware sha256sum ok."
+fi
+
+### verify firmware signature 
+/usr/bin/fwtool -t -s /tmp/firmware.sig /tmp/firmware.img
+sig_result=$(usign -V -p /etc/key-build.pub -x /tmp/firmware.sig -m /tmp/firmware.img -q; echo $?)
+if [ "$sig_result" != "0" ]; then
+    echo '9' > /tmp/upgrade_status
+    rm /tmp/one_click_upgrade_pid
+    logger -t one_click_upgrade "Check the firmware gisnatrue failed, exit."
+    exit 0
+fi
+
+### Upgrading
+echo '6' > /tmp/upgrade_status
+logger -t one_click_upgrade "Begin to upgrading......"
+sleep 25
+/usr/bin/flashleds &
+
+current_version=`cat /etc/glversion`
+
+json_load "$(cat /tmp/sysupgrade.meta)"                                                 
+json_select version
+json_get_var new_version release
+echo $new_version
+
+json_select ..
+json_select upgrade_control
+json_select not_keep_config
+json_get_var version_not_keep_config  version
+echo $version_not_keep_config
+
+json_select ..
+json_get_var     version_sup  supported_version 
+echo $version_sup
+
+if json_is_a not_keep_config_part  array
+then
+    json_select  not_keep_config_part
+    idx=1
+    while json_is_a ${idx} object  
+    do
+        json_select $idx 
+        json_get_var path1 path
+        rm $path1
+        json_select ..
+        idx=$(( idx + 1  ))
+    done
+fi
+
+uci set upgrade.general.prompt='1'
+uci commit upgrade
+
+[ -d /sys/fs/pstore ] && rm -f /sys/fs/pstore/*
+/sbin/sysupgrade $keepipk_option $keepconfig_option /tmp/firmware.img
+
+### If you run here, the upgrade failed.
+echo '7' > /tmp/upgrade_status
+logger -t one_click_upgrade "Upgrade failed, exit."
+ps | grep flashleds | grep -v grep | cut -d ' ' -f1 | xargs kill -9
+/etc/init.d/led restart
+rm /tmp/one_click_upgrade_pid

@@ -1,0 +1,11 @@
+Package: luci-app-minidlna
+Version: git-22.069.45071-315a592
+Depends: libc, minidlna
+Source: feeds/luci/applications/luci-app-minidlna
+SourceName: luci-app-minidlna
+Section: luci
+SourceDateEpoch: 1682804847
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 2744
+Description:  LuCI Support for miniDLNA

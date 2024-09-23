@@ -1,0 +1,10 @@
+Package: gl-sdk4-edgerouter
+Version: git-2023.191.07996-710c2a2-1
+Depends: libc, dhcpdiscover
+Source: feeds/glinet/gl-sdk4-edgerouter
+SourceName: gl-sdk4-edgerouter
+Section: base
+SourceDateEpoch: 1688955196
+Architecture: mipsel_24kc
+Installed-Size: 4378
+Description:  glinet edge router mode

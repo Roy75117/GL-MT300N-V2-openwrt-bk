@@ -1,0 +1,10 @@
+Package: kmod-mt7628
+Version: 5.10.176+4.0.3-19
+Depends: kernel (=5.10.176-1-a4afb905bf97d42d695b503df2a8ed52), wireless-tools
+Source: feeds/mt76x8/mt76x8-wifi-driver
+SourceName: kmod-mt7628
+Section: kernel
+SourceDateEpoch: 1694408045
+Architecture: mipsel_24kc
+Installed-Size: 772756
+Description:  MediaTek MT7628/MT7688 wireless driver

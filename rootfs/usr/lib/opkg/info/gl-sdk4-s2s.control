@@ -1,0 +1,10 @@
+Package: gl-sdk4-s2s
+Version: git-2024.134.08884-a5d6923-1
+Depends: libc, jansson4, gl-sdk4-uci, gl-sdk4-utils, wireguard-tools
+Source: feeds/glinet/gl-sdk4-s2s
+SourceName: gl-sdk4-s2s
+Section: base
+SourceDateEpoch: 1715567284
+Architecture: mipsel_24kc
+Installed-Size: 15814
+Description:  Oui Support for s2s

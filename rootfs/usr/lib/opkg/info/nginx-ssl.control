@@ -1,0 +1,14 @@
+Package: nginx-ssl
+Version: 1.17.7-2
+Depends: libc, libpcre, liblua5.1.5, libpthread, libubus20220601, libblobmsg-json20220515, libjson-c5, libopenssl1.1
+Provides: nginx
+Source: feeds/gl_feed_common/nginx
+SourceName: nginx-ssl
+License: 2-clause BSD-like license
+Section: net
+SourceDateEpoch: 1677052577
+CPE-ID: cpe:/a:nginx:nginx
+Maintainer: Thomas Heil <heil@terminal-consulting.de> Ansuel Smith <ansuelsmth@gmail.com>
+Architecture: mipsel_24kc
+Installed-Size: 293494
+Description:  nginx is an HTTP and reverse proxy server, as well as a mail proxy server, written by Igor Sysoev. (Some module require SSL module enable to show up in config menu) This variant is compiled with SSL support enabled. To enable additional module select them in the nginx default configuration menu.

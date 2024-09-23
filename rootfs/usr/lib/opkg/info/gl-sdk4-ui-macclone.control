@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-macclone
+Version: git-2024.068.14696-936f65b-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-macclone
+Source: feeds/glinet/gl-ui4.0/module/macclone
+SourceName: gl-sdk4-ui-macclone
+Section: base
+SourceDateEpoch: 1709870696
+Architecture: mipsel_24kc
+Installed-Size: 17172
+Description:  gl-sdk4-ui-macclone

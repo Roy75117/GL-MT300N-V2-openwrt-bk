@@ -1,0 +1,98 @@
+#!/bin/sh
+
+. /lib/functions/uci-defaults.sh
+# $1: function
+# $2: action
+# $3: band
+# $4: guest
+
+usage() {
+    echo -e "Usage: gl_timer_control_wifi \$function \$action \$band <\$guest>\n
+        function: turn_onoff or power_switch\n
+        action: turnon or turnoff for turn_onoff function\n
+                Max High Medium Low for power_switch function\n
+        band: 2G or 5G\n
+        guest: 0 or 1 (only turn_onoff need this param)"
+}
+
+if [ $# -lt 3 ] || [ "$1" == "turn_onoff" -a $# -lt 4 ];then
+    usage
+elif [ "$1" != "turn_onoff" -a "$1" != "power_switch" ];then
+    usage
+elif [ "$1" == "turn_onoff" ] && [ "$2" != "turnon" -a "$2" != "turnoff" ] && [ "$4" != "1" -a "$4" !="0" ];then
+    usage
+elif [ "$1" == "power_switch" ] && [ "$2" != "Max" -a "$2" != "High" -a "$2" != "Medium" -a "$2" != "Low" ];then
+    usage
+elif [ "$3" != "2G" -a "$3" != "5G" ];then
+    usage
+fi
+
+function="$1"
+action="$2"
+band="$3"
+guest="$4"
+iface=""
+device=""
+
+get_iface() {
+    config_get mode $1 mode
+    if [ "$mode" != "ap" ];then
+        return
+    fi
+
+    config_get device_tmp $1 device
+    config_get guest_tmp $1 guest 0
+    if [ "$device_tmp" == "$device" -a "$guest_tmp" == "$guest" ];then
+        iface=$1
+    fi
+}
+
+get_device() {
+    config_get band_tmp $1 band
+    band_tmp=`echo $band_tmp | awk '{print toupper($0)}'`
+    if [ "$band_tmp" == "$band" ];then
+        device=$1
+    fi
+}
+
+
+mode=`uci -q get glconfig.general.mode`
+if [ "$mode" != "router" -a "$guest" == "1" ];then
+    exit
+fi
+
+config_load wireless
+config_foreach get_device wifi-device
+if [ -z "$device" ];then
+    echo "gl_timer_control_wifi can't get wifi-device"
+    exit
+fi
+
+for count in `seq 1 10`
+do
+    lock -n /tmp/wifi_timer.lock
+    [ "$?" == "0"  ] && break
+    sleep 5
+done
+
+if [ "$function" == "turn_onoff" ];then
+    config_foreach get_iface wifi-iface
+    if [ -z "$iface" ];then
+        echo "gl_timer_control_wifi can't get wifi-iface"
+        exit
+    fi
+
+    if [ "$action" == "turnon" ];then
+        enable=true
+    else
+        enable=false
+    fi
+
+    curl -H 'glinet: 1' -k http://127.0.0.1/rpc -d "{\"jsonrpc\":\"2.0\",\"method\":\"call\",\"params\":[\"\",\"wifi\",\"set_config\",{\"iface_name\":\"$iface\",\"enabled\":$enable}],\"id\":1}"
+else
+    power=$action
+    curl -H 'glinet: 1' -k http://127.0.0.1/rpc -d "{\"jsonrpc\":\"2.0\",\"method\":\"call\",\"params\":[\"\",\"wifi\",\"set_txpower\",{\"device\":\"$device\",\"txpower\":\"$power\"}],\"id\":1}"
+fi
+
+sleep 5
+lock -u /tmp/wifi_timer.lock

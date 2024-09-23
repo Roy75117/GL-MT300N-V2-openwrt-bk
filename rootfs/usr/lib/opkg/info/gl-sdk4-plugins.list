@@ -1,0 +1,4 @@
+/usr/bin/update_plugins_db
+/etc/config/plugins
+/usr/lib/oui-httpd/rpc/plugins.so
+/etc/init.d/plugins

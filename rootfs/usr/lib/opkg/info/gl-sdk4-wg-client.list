@@ -1,0 +1,8 @@
+/etc/gl-switch.d/wireguard.sh
+/etc/wireguard/scripts/wgclient-route-update.sh
+/usr/share/gl-upload.d/wgclient
+/usr/lib/oui-httpd/rpc/wg-client.so
+/etc/hotplug.d/wireguard/ifup.sh
+/etc/hotplug.d/wireguard/ifdown.sh
+/lib/netifd/proto/wgclient.sh
+/etc/config/wireguard

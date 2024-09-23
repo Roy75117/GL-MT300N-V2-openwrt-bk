@@ -1,0 +1,10 @@
+Package: gl-sdk4-base-files
+Version: git-2024.156.07353-17c6410-1
+Depends: libc, kmod-gl-sdk4-hw-info, conntrack
+Source: feeds/glinet/gl-sdk4-base-files
+SourceName: gl-sdk4-base-files
+Section: base
+SourceDateEpoch: 1717466553
+Architecture: mipsel_24kc
+Installed-Size: 20273
+Description:  Base filesystem for gl-inet

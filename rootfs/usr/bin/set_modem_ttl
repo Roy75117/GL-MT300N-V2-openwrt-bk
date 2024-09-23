@@ -1,0 +1,45 @@
+#!/bin/sh
+
+. /lib/functions.sh
+
+
+init_modem_force()
+{
+    iptables -t mangle -N MODEM_FORCE_TTL 2>/dev/null
+    iptables -t mangle -C POSTROUTING -j MODEM_FORCE_TTL
+    [ ! "$?" = "0" ] && iptables -t mangle -I POSTROUTING -j MODEM_FORCE_TTL
+    iptables -t mangle -F MODEM_FORCE_TTL
+
+    ip6tables -t mangle -N MODEM_FORCE_TTL 2>/dev/null
+    ip6tables -t mangle -C POSTROUTING -j MODEM_FORCE_TTL
+    [ ! "$?" = "0" ] && ip6tables -t mangle -I POSTROUTING -j MODEM_FORCE_TTL
+    ip6tables -t mangle -F MODEM_FORCE_TTL
+}
+
+force_modem_ttl()
+{
+    local dev
+    local ttl
+    local ttl_ipv6
+    config_get dev $1  dev
+    config_get ttl $1 ttl
+    [ "$ttl" != "" ] && iptables -t mangle -A  MODEM_FORCE_TTL -o $dev -j TTL --ttl-set $ttl
+
+    config_get ttl_ipv6 $1 ttl_ipv6
+    [ "$ttl_ipv6" != "" ] && ip6tables -t mangle -A MODEM_FORCE_TTL -o $dev ! -p icmpv6 -m hl ! --hl-eq 255 -j HL --hl-set $ttl_ipv6
+}
+
+if [ -n "$(uci show glmodem|grep forceTTL)" ];then
+    init_modem_force
+    config_load glmodem
+    config_foreach force_modem_ttl forceTTL
+else
+    iptables -t mangle -F MODEM_FORCE_TTL
+    iptables -t mangle -D POSTROUTING -j MODEM_FORCE_TTL
+    iptables -t mangle -X MODEM_FORCE_TTL
+
+    ip6tables -t mangle -F MODEM_FORCE_TTL
+    ip6tables -t mangle -D POSTROUTING -j MODEM_FORCE_TTL
+    ip6tables -t mangle -X MODEM_FORCE_TTL
+fi
+

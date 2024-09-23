@@ -1,0 +1,6 @@
+/etc/gl-reset-network.d/reset-repeater
+/etc/init.d/repeater
+/usr/lib/oui-httpd/rpc/repeater
+/usr/lib/lua/wifi-event.so
+/etc/config/repeater
+/usr/sbin/repeater

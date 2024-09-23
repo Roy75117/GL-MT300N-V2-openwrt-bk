@@ -1,0 +1,11 @@
+Package: kmod-nls-iso8859-1
+Version: 5.10.176-1
+Depends: kernel (=5.10.176-1-a4afb905bf97d42d695b503df2a8ed52), kmod-nls-base
+Source: package/kernel/linux
+SourceName: kmod-nls-iso8859-1
+License: GPL-2.0
+Section: kernel
+SourceDateEpoch: 1724397769
+Architecture: mipsel_24kc
+Installed-Size: 1762
+Description:  Kernel module for NLS ISO 8859-1 (Latin 1)

@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-clients
+Version: git-2024.066.15334-b8639af-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-clients
+Source: feeds/glinet/gl-ui4.0/module/clients
+SourceName: gl-sdk4-ui-clients
+Section: base
+SourceDateEpoch: 1709698534
+Architecture: mipsel_24kc
+Installed-Size: 29195
+Description:  gl-sdk4-ui-clients

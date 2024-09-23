@@ -1,0 +1,15 @@
+Package: polipo
+Version: 1.1.1-2
+Depends: libc
+Source: feeds/packages/net/polipo
+SourceName: polipo
+Section: net
+SourceDateEpoch: 1568716826
+CPE-ID: cpe:/a:pps.jussieu:polipo
+Maintainer: Gabriel Kerneis <gabriel@kerneis.info>
+Architecture: mipsel_24kc
+Installed-Size: 88260
+Description:  Polipo is a small and fast caching web proxy (a web cache, an HTTP proxy,
+ a proxy server). While Polipo was designed to be used by one person or a
+ small group of people, there is nothing that prevents it from being used
+ by a larger group.

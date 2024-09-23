@@ -1,0 +1,11 @@
+Package: kmod-usb-net-cdc-ether
+Version: 5.10.176-1
+Depends: kernel (=5.10.176-1-a4afb905bf97d42d695b503df2a8ed52), kmod-usb-net
+Source: package/kernel/linux
+SourceName: kmod-usb-net-cdc-ether
+License: GPL-2.0
+Section: kernel
+SourceDateEpoch: 1724397769
+Architecture: mipsel_24kc
+Installed-Size: 3699
+Description:  Kernel support for USB CDC Ethernet devices

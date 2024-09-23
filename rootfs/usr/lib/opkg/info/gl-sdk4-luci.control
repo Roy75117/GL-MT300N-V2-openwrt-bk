@@ -1,0 +1,10 @@
+Package: gl-sdk4-luci
+Version: git-2023.145.35672-3d9d6ea-1
+Depends: libc, gl-oui-rpc, luci-base, luci-mod-rpc, luci-mod-admin-full, luci-theme-bootstrap, luci-app-firewall, luci-app-opkg, luci-proto-ppp, libiwinfo-lua, luci-proto-ipv6, rpcd-mod-rrdns
+Source: feeds/glinet/gl-sdk4-luci
+SourceName: gl-sdk4-luci
+Section: base
+SourceDateEpoch: 1685008472
+Architecture: mipsel_24kc
+Installed-Size: 105
+Description:  Luci for Gl.inet

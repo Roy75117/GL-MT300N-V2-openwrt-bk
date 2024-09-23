@@ -1,0 +1,3 @@
+/lib/modules/5.10.176/nf_tproxy_ipv4.ko
+/lib/modules/5.10.176/nf_tproxy_ipv6.ko
+/etc/modules.d/nf-tproxy

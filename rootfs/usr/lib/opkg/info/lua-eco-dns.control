@@ -1,0 +1,13 @@
+Package: lua-eco-dns
+Version: 2023-09-16-4e5411c8-1
+Depends: libc, lua-eco, lua-eco-socket
+Source: feeds/gl_feed_common/lua-eco
+SourceName: lua-eco-dns
+License: MIT
+LicenseFiles: LICENSE
+Section: lang
+SourceDateEpoch: 1695002355
+Maintainer: Jianhui Zhao <zhaojh329@gmail.com>
+Architecture: mipsel_24kc
+Installed-Size: 3725
+Description:  dns support for lua-eco

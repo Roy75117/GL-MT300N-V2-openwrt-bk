@@ -1,0 +1,51 @@
+#!/bin/sh
+
+download_file() {
+    local url="$1"
+    local md5="$2"
+    local name="$3"
+
+    while [ true ];
+    do
+        wget -q -T 5 "$1" -O "$name"
+        if [ -f "$name" ]; then
+            [ "$(md5sum $name | awk '{print $1}')" = "$md5" ] && return
+        fi
+        sleep 5
+    done
+}
+
+update_icon() {
+    local url=$(uci -q get glconfig.brand.icon_url)
+    local md5=$(uci -q get glconfig.brand.icon_md5)
+
+    [ -n "$url" -a -n "$md5" ] || {
+        rm -f /www/favicon.ico
+        return
+    }
+
+    if [ -f /www/favicon.ico ];then
+        [ "$(md5sum /www/favicon.ico | awk '{print $1}')" = "$md5" ] && return
+    fi
+
+    download_file "$url" $md5 /www/favicon.ico
+}
+
+update_logo() {
+    local url=$(uci -q get glconfig.brand.logo_url)
+    local md5=$(uci -q get glconfig.brand.logo_md5)
+
+    [ -n "$url" -a -n "$md5" ] || {
+        rm -f /www/logo.svg
+        return
+    }
+
+    if [ -f /www/logo.svg ];then
+        [ "$(md5sum /www/logo.svg | awk '{print $1}')" = "$md5" ] && return
+    fi
+
+    download_file "$url" $md5 /www/logo.svg
+}
+
+update_icon
+update_logo

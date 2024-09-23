@@ -1,0 +1,30 @@
+#!/bin/sh
+
+clean_vpnclient_contrack()
+{
+    OVPNDIS=$(uci get  network.ovpnclient.disabled)
+    WGDIS=$(uci get network.wgclient.disabled)
+    if [ "$OVPNDIS" = "0" ]; then
+        conntrack -D --dst "$(cat /tmp/run/ovpn_resolved_ip)" &>/dev/null
+    fi
+
+    if [ "$WGDIS" = "0" ]; then
+        conntrack -D --dst "$(cat /tmp/run/wg_resolved_ip)" &>/dev/null
+    fi
+}
+
+clean_contrack()
+{
+    local LANADDR LANMASK GUESTADDR GUESTMASK
+    eval $(ifstatus lan | jsonfilter -e 'LANADDR=@["ipv4-address"][0].address' -e 'LANMASK=@["ipv4-address"][0].mask')
+    eval $(ifstatus guest | jsonfilter -e 'GUESTADDR=@["ipv4-address"][0].address' -e 'GUESTMASK=@["ipv4-address"][0].mask')
+
+    [ -n "$LANADDR" ] && [ -n "$LANMASK" ] && conntrack -D --src "$LANADDR"/"$LANMASK" &>/dev/null
+    [ -n "$GUESTADDR" ] && [ -n "$GUESTMASK" ] && conntrack -D --src "$GUESTADDR"/"$GUESTMASK" &>/dev/null
+    [ -n "$LANADDR" ] && [ -n "$LANMASK" ] && conntrack -D --dst "$LANADDR"/"$LANMASK" &>/dev/null
+    [ -n "$GUESTADDR" ] && [ -n "$GUESTMASK" ] && conntrack -D --dst "$GUESTADDR"/"$GUESTMASK" &>/dev/null
+}
+
+type conntrack &>/dev/null && clean_contrack
+type clean_vpnclient_contrack &>/dev/null && clean_vpnclient_contrack
+exit 0

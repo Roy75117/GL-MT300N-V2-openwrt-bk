@@ -1,0 +1,11 @@
+#!/bin/sh /etc/rc.common
+
+
+START=29
+
+start() {
+  local proxy_mode="$(uci -q get vpnpolicy.route_policy.proxy_mode)"
+  if [ ${proxy_mode} = "3" -o ${proxy_mode} = "4" -o ${proxy_mode} = "5" ];then
+		/usr/bin/route_policy "$proxy_mode"
+  fi 
+}

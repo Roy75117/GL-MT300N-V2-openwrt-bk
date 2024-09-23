@@ -1,0 +1,2 @@
+/etc/modules.d/wireguard
+/lib/modules/5.10.176/wireguard.ko

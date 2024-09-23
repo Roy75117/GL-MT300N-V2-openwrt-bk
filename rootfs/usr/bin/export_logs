@@ -1,0 +1,45 @@
+#!/bin/sh
+
+export_oops()
+{
+    log_dev=$(cat /proc/mtd | grep log | awk -F ':' '{print $1}')
+
+    [ -n "$log_dev" ] && {
+        oopslog /dev/$log_dev > /tmp/logread/crash.log
+        return
+    }
+
+    [ -n "$(find /sys/fs/pstore -type f)" ] && {
+        for x in $(ls /sys/fs/pstore/dmesg*)
+        do
+            cat $x >> /tmp/logread/crash.log
+            echo >> /tmp/logread/crash.log
+        done
+    }
+}
+
+export_logs()
+{
+    if [ -e "/tmp/logread.tar" ];then
+        rm -rf /www/js/logread.tar
+        rm -rf /tmp/logread/
+        rm -rf /tmp/logread.tar
+    fi
+
+    mkdir -p /tmp/logread/nginx
+    mkdir -p /tmp/logread/net_dbg
+    export_oops
+    logread > /tmp/logread/system.log
+    dmesg > /tmp/logread/kernel.log
+    logread -e gl-cloud > /tmp/logread/cloud.log
+    cp -r /var/log/nginx/*.log /tmp/logread/nginx
+    cd /tmp/logread/net_dbg
+    sh /usr/bin/net_dbg.sh
+
+    cd /tmp
+    chmod 777 -R logread/*
+    tar -cf logread.tar logread/
+    rm -r logread
+}
+
+export_logs

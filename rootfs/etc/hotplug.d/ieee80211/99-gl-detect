@@ -1,0 +1,161 @@
+. /lib/functions/gl_util.sh
+
+wait_wifi_config() {
+    local n=10
+    local idx=$1
+    while [ ! "$(uci -q get wireless.radio$idx)" -a $n -gt 0 ];
+    do
+        echo "wait wifi config for radio$idx ..." > /dev/console
+        let n=n-1
+        sleep 1
+    done
+}
+
+detect() {
+    local idx=$(echo ${DEVICENAME#phy})
+
+    wait_wifi_config $idx
+
+    cmd=$(iw phy $DEVICENAME info | awk '
+        $0 ~ "VHT Capabilities" {
+            vht=1
+            type="vht"
+        }
+
+        $0 ~ "HE Iftypes: AP" {
+            he=1
+            type="he"
+        }
+
+        $0 ~ "Frequencies:" {
+            type="freq"
+            max_txpwr=0
+        }
+
+        type == "vht" {
+            if ($1 == "160 MHz") {
+                vht160=1
+                type=""
+            }
+        }
+
+        type == "he" {
+            if ($1 == "HE160/5GHz") {
+                he160=1
+                type=""
+            }
+        }
+
+        type == "freq" {
+            if ($1 == "*" && $3 == "MHz") {
+                channel=$4
+                power=$5
+
+                sub("\\[", "", channel)
+                sub("\\]", "", channel)
+
+                sub("\\(", "", power)
+
+                if (int(channel) < 36) { vht = "" }
+
+                if (int(power) > int(max_txpwr)) { max_txpwr=power }
+            }
+        }
+
+        END {
+            print("vht=" vht)
+            print("he=" he)
+            print("vht160=" vht160)
+            print("he160=" he160)
+            print("max_txpwr=" max_txpwr)
+        }
+    ')
+
+    eval "$cmd"
+
+    band=$(uci -q get wireless.radio$idx.band)
+    [ "$band" = "2g" ] && vht=
+
+    . /usr/share/libubox/jshn.sh
+
+    json_init
+
+    json_add_string phy $DEVICENAME
+    json_add_object hwmodes
+
+    json_add_boolean n 1
+
+    if [ -n "$vht" ];
+    then
+        json_add_boolean a 1
+        json_add_boolean ac 1
+    else
+        json_add_boolean b 1
+        json_add_boolean g 1
+    fi
+
+    [ -n "$he" ] && json_add_boolean ax 1
+
+    json_select ..
+
+    json_add_array htmodes
+    json_add_string "" HT20
+    json_add_string "" HT40
+
+    [ -n "$vht" ] && {
+        json_add_string "" VHT20
+        json_add_string "" VHT40
+        json_add_string "" VHT80
+        [ -n "$vht160" ] && json_add_string "" VHT160
+    }
+
+    [ -n "$he" ] && {
+        json_add_string "" HE20
+        json_add_string "" HE40
+
+        [ -n "$vht" ] && {
+            json_add_string "" HE80
+            [ -n "$he160" ] && json_add_string "" HE160
+        }
+    }
+
+    json_select ..
+
+    [ -n "$vht" ] && {
+        json_add_int max_vht 80
+        [ -n "$vht160" ] && json_add_int max_vht 160
+    }
+
+    [ -n "$he" ] && {
+        json_add_int max_he 40
+
+        [ -n "$vht" ] && {
+            json_add_int max_he 80
+            [ -n "$he160" ] && json_add_int max_he 160
+        }
+    }
+
+    json_add_int max_txpwr $max_txpwr
+
+    json_dump > /var/run/wifi-features-radio$idx
+
+    # Only write US or CN to flash, use band1 + band4 for auto channel, other use band1
+    [ -n "$vht" ] && {
+        country=$(uci -q get wireless.radio$idx.country)
+        channels="36,40,44,48"
+
+        # configured to US or CN
+        [ "$country" = "US" -o "$country" = "CN" ] && channels="36,40,44,48,149,153,157,161"
+
+        # no write country code
+        [ -z "$(get_country_code)" ] && channels="36,40,44,48"
+
+        # for 160MHz
+        [ "$(uci -q get wireless.radio$idx.htmode | grep -o '[0-9]\+')" = "160" ] && channels="36,40,44,48,52,56,60,64"
+
+        uci set wireless.radio$idx.channels="$channels"
+        uci commit wireless
+    }
+}
+
+[ "${ACTION}" = "add" ] && detect

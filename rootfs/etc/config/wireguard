@@ -1,0 +1,37 @@
+
+config proxy 'global'
+	option global_proxy '1'
+
+config providers 'AzireVPN'
+	option auth_type '1'
+	option procedure '0'
+	option group_id '314'
+
+config providers 'Mullvad'
+	option auth_type '2'
+	option procedure '1'
+	option group_id '9633'
+
+config providers 'FromApp'
+	option auth_type '1'
+	option procedure '0'
+	option group_id '2599'
+
+config groups 'group_314'
+	option group_name 'AzireVPN'
+	option group_type '1'
+	option auth_type '1'
+	option procedure '0'
+
+config groups 'group_9633'
+	option group_name 'Mullvad'
+	option group_type '1'
+	option auth_type '2'
+	option procedure '1'
+
+config groups 'group_2599'
+	option group_name 'FromApp'
+	option group_type '3'
+	option auth_type '1'
+	option procedure '0'
+

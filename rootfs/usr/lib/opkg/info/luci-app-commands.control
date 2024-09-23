@@ -1,0 +1,12 @@
+Package: luci-app-commands
+Version: git-21.099.45379-36959dc
+Depends: libc, luci-compat
+Source: feeds/luci/applications/luci-app-commands
+SourceName: luci-app-commands
+License: Apache-2.0
+Section: luci
+SourceDateEpoch: 1682804847
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 5073
+Description:  LuCI Shell Command Module

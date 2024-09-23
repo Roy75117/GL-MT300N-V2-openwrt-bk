@@ -1,0 +1,10 @@
+Package: gl-sdk4-uci
+Version: git-2023.066.07450-45547fd-1
+Depends: libc, libuci20130104
+Source: feeds/glinet/gl-sdk4-uci
+SourceName: gl-sdk4-uci
+Section: base
+SourceDateEpoch: 1678154650
+Architecture: mipsel_24kc
+Installed-Size: 3535
+Description:  A warp around libuci, aim to use simple

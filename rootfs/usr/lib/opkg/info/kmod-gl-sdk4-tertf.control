@@ -1,0 +1,10 @@
+Package: kmod-gl-sdk4-tertf
+Version: 5.10.176+git-2023.130.12053-524d7a3-1
+Depends: kernel (=5.10.176-1-a4afb905bf97d42d695b503df2a8ed52), kmod-br-netfilter, kmod-arptables
+Source: feeds/glinet/gl-sdk4-tertf
+SourceName: kmod-gl-sdk4-tertf
+Section: kernel
+SourceDateEpoch: 1683688853
+Architecture: mipsel_24kc
+Installed-Size: 9296
+Description:  Bandwidth Monitor for oui

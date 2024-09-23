@@ -1,0 +1,13 @@
+Package: libpopt0
+Version: 1.16-2
+Depends: libc
+Provides: libpopt
+Source: feeds/base/package/libs/popt
+SourceName: libpopt
+License: MIT
+Section: libs
+SourceDateEpoch: 1551219604
+ABIVersion: 0
+Architecture: mipsel_24kc
+Installed-Size: 16635
+Description:  A command line option parsing library

@@ -1,0 +1,6 @@
+/lib/modules/5.10.176/xt_pkttype.ko
+/lib/modules/5.10.176/xt_addrtype.ko
+/etc/modules.d/ipt-extra
+/lib/modules/5.10.176/xt_owner.ko
+/lib/modules/5.10.176/xt_quota.ko
+/lib/modules/5.10.176/xt_cgroup.ko

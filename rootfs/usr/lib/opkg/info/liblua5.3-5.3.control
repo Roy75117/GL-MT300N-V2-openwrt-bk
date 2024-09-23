@@ -1,0 +1,15 @@
+Package: liblua5.3-5.3
+Version: 5.3.5-5
+Depends: libc
+Provides: liblua5.3
+Source: package/utils/lua5.3
+SourceName: liblua5.3
+License: MIT
+LicenseFiles: COPYRIGHT
+Section: libs
+SourceDateEpoch: 1724397769
+ABIVersion: -5.3
+Architecture: mipsel_24kc
+Installed-Size: 81642
+Description:  
+ This package contains the Lua shared libraries, needed by other programs.

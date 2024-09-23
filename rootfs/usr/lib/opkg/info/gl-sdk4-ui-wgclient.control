@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-wgclient
+Version: git-2024.150.12762-016dc16-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-wg-client
+Source: feeds/glinet/gl-ui4.0/module/wgclient
+SourceName: gl-sdk4-ui-wgclient
+Section: base
+SourceDateEpoch: 1716953562
+Architecture: mipsel_24kc
+Installed-Size: 25712
+Description:  gl-sdk4-ui-wgclient

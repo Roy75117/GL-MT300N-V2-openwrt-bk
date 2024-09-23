@@ -1,0 +1,14 @@
+Package: libbpf20220308
+Version: 2022-03-08-04c465fd-1
+Depends: libc, libelf1
+Provides: libbpf
+Source: package/network/utils/bpftools
+SourceName: libbpf
+License: LGPL-2.1 OR BSD-2-Clause
+Section: libs
+SourceDateEpoch: 1647692955
+ABIVersion: 20220308
+Maintainer: Tony Ambardar <itugrok@yahoo.com>
+Architecture: mipsel_24kc
+Installed-Size: 135430
+Description:  libbpf is a library for loading eBPF programs and reading and manipulating eBPF objects from user-space.

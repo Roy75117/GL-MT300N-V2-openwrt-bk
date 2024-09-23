@@ -1,0 +1,12 @@
+Package: alist
+Version: 3.37.4-1
+Depends: libc, ca-bundle
+Source: /feed/alist
+SourceName: alist
+License: GPL-3.0
+Section: net
+SourceDateEpoch: 1726681204
+Maintainer: sbwml <admin@cooluc.com>
+Architecture: mipsel_24kc
+Installed-Size: 25366443
+Description:  A file list program that supports multiple storage, powered by Gin and Solidjs.

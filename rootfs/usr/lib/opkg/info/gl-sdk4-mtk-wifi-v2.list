@@ -1,0 +1,8 @@
+/usr/share/wifi-features-mt7628
+/usr/sbin/mtk-wifi-configurator
+/usr/lib/lua/iwpriv.so
+/etc/init.d/mtk-wifi-configurator
+/etc/config/wireless
+/lib/netifd/wireless/mtk.sh
+/etc/uci-defaults/20-mtk-wifi-luci
+/www/luci-static/resources/view/network/wireless.js.mtk

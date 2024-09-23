@@ -1,0 +1,14 @@
+table ip mangle_conn_mark
+delete table ip mangle_conn_mark
+
+table ip mangle_conn_mark {
+	chain mangle_prerouting_conn_mark {
+		type filter hook prerouting priority mangle - 1; policy accept;
+		iifname "br-lan" ip protocol 6 ct mark & 0x00008000 == 0x00008000 meta mark set ct mark comment "lan_in_conn_mark_restore"
+		iifname "br-lan" ip protocol 17 ct mark & 0x00008000 == 0x00008000 meta mark set ct mark comment "lan_in_conn_mark_restore"
+		iifname "eth0.2" ip protocol 6 meta mark & 0x00003f00 == 0x00000000 ct mark set ct mark | 0x00008000 comment "wan_in_conn_mark"
+		iifname "eth0.2" ip protocol 17 meta mark & 0x00003f00 == 0x00000000 ct mark set ct mark | 0x00008000 comment "wan_in_conn_mark"
+		iifname "wlan-sta0" ip protocol 6 meta mark & 0x00003f00 == 0x00000000 ct mark set ct mark | 0x00008000 comment "wan_in_conn_mark"
+		iifname "wlan-sta0" ip protocol 17 meta mark & 0x00003f00 == 0x00000000 ct mark set ct mark | 0x00008000 comment "wan_in_conn_mark"
+	}
+}

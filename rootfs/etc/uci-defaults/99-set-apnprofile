@@ -1,0 +1,66 @@
+#!/bin/sh
+
+visible_apn_set()
+{
+	local tmp=`uci -q get apnprofile.visible.description`
+	[ "$tmp" != "VISIBLE" ] && {
+		uci set apnprofile.visible='rule'
+		uci set apnprofile.visible.apn='VSBLINTERNET'
+		uci set apnprofile.visible.protocol='qcm'
+		uci set apnprofile.visible.description='VISIBLE'
+		uci set apnprofile.visible.apn_use='3'
+		uci set apnprofile.visible.apns='["VSBLIMS","VSBLADMIN","","VSBLAPP"]'
+
+		uci commit apnprofile
+	}
+}
+
+verizon_apn_set()
+{
+	local tmp=`uci -q get apnprofile.verizon.description`
+	[ "$tmp" != "VERIZON" ] && {
+		uci set apnprofile.verizon=rule
+		uci set apnprofile.verizon.apn='VZWINTERNET'
+		uci set apnprofile.verizon.protocol='qcm'
+		uci set apnprofile.verizon.description='VERIZON'
+		uci set apnprofile.verizon.apn_use='3'
+		uci set apnprofile.verizon.apns='["ims","vzwadmin","","vzwapp"]'
+		
+		uci commit apnprofile
+	}
+}
+
+orange_apn_set()
+{
+	local tmp=`uci -q get apnprofile.orange.description`
+
+	[ "$tmp" != "ORANGE" ] && {
+		uci set apnprofile.orange=rule
+		uci set apnprofile.orange.apn='net'
+		uci set apnprofile.orange.protocol='qcm'
+		uci set apnprofile.orange.description='ORANGE'
+		uci set apnprofile.orange.apn_use='5'
+
+		uci commit apnprofile
+	}
+}
+
+telstra_apn_set()
+{
+	local tmp=`uci -q get apnprofile.telstra.description`
+	[ "$tmp" != "TELSTRA" ] && {
+		uci set apnprofile.telstra=rule
+		uci set apnprofile.telstra.apn='telstra.wap'
+		uci set apnprofile.telstra.protocol='qcm'
+		uci set apnprofile.telstra.description='TELSTRA'
+		uci set apnprofile.telstra.apn_use='1'
+		uci set apnprofile.telstra.apns='["","ims","sos"]'
+		
+		uci commit apnprofile
+	}
+}
+
+visible_apn_set
+verizon_apn_set
+orange_apn_set
+telstra_apn_set

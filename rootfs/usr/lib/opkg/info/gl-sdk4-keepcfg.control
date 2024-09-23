@@ -1,0 +1,10 @@
+Package: gl-sdk4-keepcfg
+Version: git-2023.255.36342-d18bb08-1
+Depends: libc
+Source: feeds/glinet/gl-sdk4-keepcfg
+SourceName: gl-sdk4-keepcfg
+Section: base
+SourceDateEpoch: 1694513142
+Architecture: mipsel_24kc
+Installed-Size: 3028
+Description:  keep config when upgrading sdk4 from sdk3

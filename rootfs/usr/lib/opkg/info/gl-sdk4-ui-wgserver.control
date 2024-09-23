@@ -1,0 +1,10 @@
+Package: gl-sdk4-ui-wgserver
+Version: git-2024.066.15334-b8639af-1
+Depends: libc, gl-sdk4-ui-core, gl-sdk4-wg-server
+Source: feeds/glinet/gl-ui4.0/module/wgserver
+SourceName: gl-sdk4-ui-wgserver
+Section: base
+SourceDateEpoch: 1709698534
+Architecture: mipsel_24kc
+Installed-Size: 20053
+Description:  gl-sdk4-ui-wgserver

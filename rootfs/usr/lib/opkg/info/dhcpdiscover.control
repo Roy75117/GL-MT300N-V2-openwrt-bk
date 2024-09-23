@@ -1,0 +1,10 @@
+Package: dhcpdiscover
+Version: 1
+Depends: libc
+Source: feeds/gl_feed_common/dhcpdiscover
+SourceName: dhcpdiscover
+Section: net
+SourceDateEpoch: 1668155650
+Architecture: mipsel_24kc
+Installed-Size: 7528
+Description:  Brings some information about the existing DHCP servers of the network

@@ -1,0 +1,5 @@
+/usr/sbin/ip6tables-translate
+/usr/sbin/ip6tables-nft
+/usr/sbin/ip6tables-nft-save
+/usr/sbin/ip6tables-restore-translate
+/usr/sbin/ip6tables-nft-restore

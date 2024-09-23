@@ -1,0 +1,10 @@
+Package: gl-sdk4-macclone
+Version: git-2023.191.04682-32a98db-1
+Depends: libc, libuci-lua, gl-sdk4-lua-utils
+Source: feeds/glinet/gl-sdk4-macclone
+SourceName: gl-sdk4-macclone
+Section: base
+SourceDateEpoch: 1688951882
+Architecture: mipsel_24kc
+Installed-Size: 3312
+Description:  glinet SDK4 macclone module

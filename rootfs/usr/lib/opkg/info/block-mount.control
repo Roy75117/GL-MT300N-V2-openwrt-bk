@@ -1,0 +1,12 @@
+Package: block-mount
+Version: 2022-06-02-93369be0-2
+Depends: libc, ubox, libubox20220515, libuci20130104, libblobmsg-json20220515, libjson-c5
+Source: package/system/fstools
+SourceName: block-mount
+License: GPL-2.0
+Section: base
+SourceDateEpoch: 1660337211
+Maintainer: John Crispin <john@phrozen.org>
+Architecture: mipsel_24kc
+Installed-Size: 22436
+Description:  Block device mounting and checking

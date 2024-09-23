@@ -1,0 +1,11 @@
+Package: luci-app-acl
+Version: git-21.194.67617-f74b06c
+Depends: libc, luci-base
+Source: feeds/luci/applications/luci-app-acl
+SourceName: luci-app-acl
+Section: luci
+SourceDateEpoch: 1680282554
+Maintainer: OpenWrt LuCI community
+Architecture: all
+Installed-Size: 3395
+Description:  LuCI account management module

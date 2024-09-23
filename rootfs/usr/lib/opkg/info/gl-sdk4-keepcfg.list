@@ -1,0 +1,6 @@
+/rootfs-overlay/etc/uci-defaults/zzz-wireless-keep-glsdk3-config
+/rootfs-overlay/etc/uci-defaults/zzz-mwan3-keep-glsdk3-config
+/rootfs-overlay/etc/uci-defaults/zzz-goodcloud-keep-glsdk3-config
+/rootfs-overlay/lib/preinit/80_mount_root
+/rootfs-overlay/etc/uci-defaults/zzz-network-keep-glsdk3-config
+/rootfs-overlay/etc/uci-defaults/zzz-passwork-keep-glsdk3-config

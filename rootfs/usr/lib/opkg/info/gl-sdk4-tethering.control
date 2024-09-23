@@ -1,0 +1,10 @@
+Package: gl-sdk4-tethering
+Version: git-2024.141.35626-b210688-1
+Depends: libc, kmod-usb-net-ipheth, usbmuxd, kmod-usb-net-rndis
+Source: feeds/glinet/gl-sdk4-tethering
+SourceName: gl-sdk4-tethering
+Section: base
+SourceDateEpoch: 1716198826
+Architecture: mipsel_24kc
+Installed-Size: 3934
+Description:  Oui Support for tethering

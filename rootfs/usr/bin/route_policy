@@ -1,0 +1,426 @@
+#!/bin/sh
+
+. /lib/functions.sh
+. /lib/functions/gl_util.sh
+
+VPN_DNS=""
+WAN_DNS=""
+MANUL_DNS=""
+LOCAL_LAN=""
+LOCAL_GUEST=""
+
+LOCKFILE=/tmp/run/route_policy.lock
+
+while [ -f $LOCKFILE ]; do
+	echo "Waiting for lock to be released..."
+	sleep 1
+done
+
+echo $$ > $LOCKFILE
+
+exec 512>/var/lock/procd_firewall.lock
+flock 512
+
+make_ipset()
+{
+	ipset create via_vpn_domain hash:net
+	ipset create bypass_vpn_domain hash:net
+	ipset create via_vpn_mac hash:mac
+	ipset create bypass_vpn_mac hash:mac
+}
+
+flush_ipset()
+{
+	ipset flush via_vpn_domain
+	ipset flush bypass_vpn_domain
+	ipset flush via_vpn_mac
+	ipset flush bypass_vpn_mac
+}
+
+destroy_ipset()
+{
+	ipset destroy via_vpn_domain
+	ipset destroy bypass_vpn_domain
+	ipset destroy via_vpn_mac
+	ipset destroy bypass_vpn_mac
+}
+
+fw4_delete_forward_bypass_domain()
+{
+	rm /usr/share/nftables.d/chain-pre/forward_lan/01-forward_bypass_domain.nft 2>/dev/null
+	rm /usr/share/nftables.d/chain-pre/forward_guest/01-forward_bypass_domain.nft 2>/dev/null
+	nft delete rule inet fw4 forward_lan handle `nft -a list chain inet fw4 forward_lan | awk '{if($4=="0x00008000")print $NF}'`
+	nft delete rule inet fw4 forward_guest handle `nft -a list chain inet fw4 forward_guest | awk '{if($4=="0x00008000")print $NF}'`
+}
+
+delete_firewall()
+{
+	while [ true ];do
+		[ ! -f /var/run/fw3.lock ] && break
+		sleep 1
+	done
+	iptables -w -I INPUT -i br+ -p tcp -m tcp --dport 53 -m comment --comment "block_dns_manual" -j REJECT
+	iptables -w -I INPUT -i br+ -p udp -m udp --dport 53 -m comment --comment "block_dns_manual" -j REJECT
+	iptables -w -D FORWARD -j ROUTE_POLICY
+	iptables -w -F ROUTE_POLICY
+	iptables -w -X ROUTE_POLICY
+	if [ -n "$(which fw4)" ];then
+		fw4_delete_forward_bypass_domain
+	fi
+
+	iptables -w -t mangle  -D PREROUTING -j ROUTE_POLICY
+	iptables -w -t mangle  -F ROUTE_POLICY
+	iptables -w -t mangle  -X ROUTE_POLICY
+	iptables -w -t mangle  -D OUTPUT -j ROUTE_POLICY_DNS
+	iptables -w -t mangle  -F ROUTE_POLICY_DNS
+	iptables -w -t mangle  -X ROUTE_POLICY_DNS
+
+	iptables -w -t nat  -D PREROUTING -j ROUTE_POLICY
+	iptables -w -t nat  -F ROUTE_POLICY
+	iptables -w -t nat  -X ROUTE_POLICY
+}
+
+
+killswitch_update()
+{
+	killswitch="$(uci get vpnpolicy.global.kill_switch)"
+	iptables -w -F ROUTE_POLICY 2>/dev/null
+
+	if [ -n "$(which fw4)" ];then
+		fw4_delete_forward_bypass_domain
+	fi
+
+	[ "$killswitch" = 0 ] && {
+		if [ -n "$(which fw4)" ];then
+			mkdir -p /usr/share/nftables.d/chain-pre/forward_lan/
+			mkdir -p /usr/share/nftables.d/chain-pre/forward_guest/
+			echo "mark and 0x8000 == 0x8000 counter accept" > /usr/share/nftables.d/chain-pre/forward_lan/01-forward_bypass_domain.nft
+			echo "mark and 0x8000 == 0x8000 counter accept" > /usr/share/nftables.d/chain-pre/forward_guest/01-forward_bypass_domain.nft
+			if [ -z "$(nft -a list chain inet fw4 forward_lan | awk '{if($4=="0x00008000")print $NF}')" ];then
+				nft insert rule inet fw4 forward_lan mark and 0x8000 == 0x8000 counter accept
+				nft insert rule inet fw4 forward_guest mark and 0x8000 == 0x8000 counter accept
+			fi
+		else
+			iptables -w -A ROUTE_POLICY  -i br-lan -m mark --mark 0x8000/0x8000  -j ACCEPT
+			iptables -w -A ROUTE_POLICY  -i br-guest -m mark --mark 0x8000/0x8000  -j ACCEPT
+		fi
+	}
+}
+
+dns_mark(){
+	iptables -w -t mangle -N ROUTE_POLICY_DNS
+	iptables -w -t mangle -D OUTPUT -j ROUTE_POLICY_DNS
+	iptables -w -t mangle -A OUTPUT -j ROUTE_POLICY_DNS
+	iptables -w -t mangle -F ROUTE_POLICY_DNS
+	[ -n "${WAN_DNS_ALL}" ] && {
+		for dns in ${WAN_DNS_ALL};do
+			iptables -w -t mangle -A ROUTE_POLICY_DNS -d $dns -j MARK --set-xmark 0x8000/0xc000
+		done
+	}
+
+	[ -n "$VPN_DNS" ] && iptables -w -t mangle -A ROUTE_POLICY_DNS -d $VPN_DNS -j MARK --set-xmark 0x0/0xc000
+}
+
+make_firewall()
+{
+	while [ true ];do
+		[ ! -f /var/run/fw3.lock ] && break
+		sleep 1
+	done
+	iptables -w -t mangle -N ROUTE_POLICY
+	iptables -w -t mangle -A PREROUTING -j ROUTE_POLICY
+	iptables -w -t nat -N ROUTE_POLICY
+	iptables -w -t nat -I PREROUTING -j ROUTE_POLICY
+
+	iptables -w -N ROUTE_POLICY
+	local block_line="$(iptables -w -L FORWARD   --line-numbers|grep GL_MAC_BLOCK|cut -d ' ' -f 1)"
+	if [ -n "$block_line" ];then
+		let block_line=block_line+1
+		iptables -w -I FORWARD "$block_line" -j ROUTE_POLICY
+	else
+		iptables -w -I FORWARD -j ROUTE_POLICY
+	fi
+	killswitch_update
+}
+
+get_vpn_dns()
+{
+	local dns=""
+	case "$1" in
+		"first")
+			dns=$( (cat /tmp/resolv.conf.d/resolv.conf.ovpn 2>/dev/null || cat /tmp/resolv.conf.d/resolv.conf.wg 2>/dev/null) | grep nameserver | grep -v : | head -n 1 | cut -d ' ' -f 2)
+		;;
+		"all")
+			dns=$( (cat /tmp/resolv.conf.d/resolv.conf.ovpn 2>/dev/null || cat /tmp/resolv.conf.d/resolv.conf.wg 2>/dev/null) | grep nameserver | grep -v : | cut -d ' ' -f 2)
+		;;
+		*)
+	esac
+	echo $dns
+}
+
+handle_dns()
+{
+	[ -f "/tmp/resolv.conf.d/resolv.conf.ovpn" ] && echo resolv-file=/tmp/resolv.conf.d/resolv.conf.ovpn > /tmp/dnsmasq.d/resolv.vpn
+	[ -f "/tmp/resolv.conf.d/resolv.conf.wg" ]   && echo resolv-file=/tmp/resolv.conf.d/resolv.conf.wg   > /tmp/dnsmasq.d/resolv.vpn
+	local dns_via_all=$(cat /tmp/resolv.conf.d/resolv.conf.auto /tmp/resolv.conf.auto 2>/dev/null | grep nameserver | grep -v : | cut -d ' ' -f 2)
+	WAN_DNS_ALL="${dns_via_all}"
+	dns_mark
+
+	local noresolv=$(uci -q get dhcp.@dnsmasq[0].noresolv 2>/dev/null)
+	#判断是否由第三方程序处理DNS
+	[ "$noresolv" = "1" ] && return 0
+
+	local vpn_dns_via=$(get_vpn_dns first)
+	local dns_via=$(cat /tmp/resolv.conf.d/resolv.conf.auto /tmp/resolv.conf.auto 2>/dev/null | grep nameserver | grep -v : | head -n 1 | cut -d ' ' -f 2)
+	local manual_dns=$(uci -q get dhcp.@dnsmasq[0].server 2>/dev/null | cut -d '#' -f 1)
+
+	VPN_DNS="${vpn_dns_via}"
+	WAN_DNS="${dns_via}"
+	MANUL_DNS="${manual_dns}"
+	LOCAL_LAN="$(uci -q get network.lan.ipaddr)"
+	LOCAL_GUEST="$(uci -q get network.guest.ipaddr)"
+}
+
+reload_domain_firewall()
+{
+	local default_policy=$(uci get vpnpolicy.domain.default_policy)
+	local domain_list=$(uci get vpnpolicy.domain.domain)
+
+	logger -t route_policy "default_policy=${default_policy} domain_list=${domain_list}"
+
+	while [ true ];do
+		[ ! -f /var/run/fw3.lock ] && break
+		sleep 1
+	done
+	iptables -w -t mangle -F ROUTE_POLICY
+	iptables -w -t nat -F ROUTE_POLICY
+
+	#指定域名绕过VPN,无MAC地址配置
+	[ "${default_policy}" = "1" ] && [ -n "${domain_list}" ] && {
+		iptables -w -t mangle -I ROUTE_POLICY -i br-+ -m set --match-set bypass_vpn_domain dst -j MARK --set-mark 0x8000/0xc000
+		[ -f "/tmp/resolv.conf.d/resolv.conf.ovpn" ] && echo resolv-file=/tmp/resolv.conf.d/resolv.conf.ovpn > /tmp/dnsmasq.d/resolv.vpn
+		[ -f "/tmp/resolv.conf.d/resolv.conf.wg" ]   && echo resolv-file=/tmp/resolv.conf.d/resolv.conf.wg   > /tmp/dnsmasq.d/resolv.vpn
+	}
+
+	#指定域名通过VPN,无MAC地址配置
+	[ "${default_policy}" = "0" ]  && {
+		iptables -w -t mangle -I ROUTE_POLICY -i br-+ -m set ! --match-set via_vpn_domain dst -j MARK --set-mark 0x8000/0xc000
+		rm -f /tmp/dnsmasq.d/resolv.vpn
+	}
+}
+
+reload_mac_firewall()
+{
+	local default_policy=$(uci get vpnpolicy.mac.default_policy)
+	local mac_list=$(uci get vpnpolicy.mac.mac)
+
+	logger -t route_policy "default_policy=${default_policy} mac_list=${mac_list}"
+
+	while [ true ];do
+		[ ! -f /var/run/fw3.lock ] && break
+		sleep 1
+	done
+	iptables -w -t mangle -F ROUTE_POLICY
+	iptables -w -t nat -F ROUTE_POLICY
+
+	#指定mac不走VPN，无域名配置
+	[ "${default_policy}" = "1" ] && {
+		if [ -n "${mac_list}" ]; then
+			iptables -w -t mangle -I ROUTE_POLICY -i br-+ -m set --match-set bypass_vpn_mac src  -j MARK --set-mark 0x8000/0xc000
+			[ -n "$WAN_DNS" ] && {
+			iptables -w -t nat -A ROUTE_POLICY -i br-+ -m set --match-set bypass_vpn_mac src -p tcp --dport 53  -j DNAT --to $WAN_DNS
+			iptables -w -t nat -A ROUTE_POLICY -i br-+ -m set --match-set bypass_vpn_mac src -p udp --dport 53  -j DNAT --to $WAN_DNS
+			}
+		fi
+	}
+
+	#指定mac走VPN，无域名配置
+	[ "${default_policy}" = "0" ] && {
+		iptables -w -t mangle -I ROUTE_POLICY -i br-+ -m set ! --match-set via_vpn_mac src  -j MARK --set-mark 0x8000/0xc000
+		[ -n "$WAN_DNS" ] && {
+		iptables -w -t nat -A ROUTE_POLICY -i br-+ -m set ! --match-set via_vpn_mac src -p tcp --dport 53  -j DNAT --to $WAN_DNS
+		iptables -w -t nat -A ROUTE_POLICY -i br-+ -m set ! --match-set via_vpn_mac src -p udp --dport 53  -j DNAT --to $WAN_DNS
+		}
+	}
+
+	iptables -w -t mangle -A ROUTE_POLICY -i br-+ -j CONNMARK --save-mark --nfmask 0xc000 --ctmask 0xc000
+}
+
+clean_dnsmasq_settings()
+{
+	rm -f /tmp/dnsmasq.d/bypass_domain 2>/dev/null
+	rm -f /tmp/dnsmasq.d/via_domain 2>/dev/null
+	rm -f /tmp/dnsmasq.d/conntrack 2>/dev/null
+}
+
+apply_dnsmasq_settings()
+{
+	create_restart_service /etc/init.d/dnsmasq
+}
+
+flush_nf_conntrack()
+{
+	/usr/bin/clean_client_conntrack
+	iptables -w -D INPUT -i br+ -p tcp -m tcp --dport 53 -m comment --comment "block_dns_manual" -j REJECT
+	iptables -w -D INPUT -i br+ -p udp -m udp --dport 53 -m comment --comment "block_dns_manual" -j REJECT
+}
+
+set_domain_resolv()
+{
+	local dns_conf="bypass_domain"
+	local ipset_list="bypass_vpn_domain"
+	local domain_clean=$(echo $1 | sed -e 's/https:\/\///' -e 's/http:\/\///' -e 's/www\.//' -e 's/\/.*//')
+
+	[ "$2" = "via" ] && {
+		dns_conf="via_domain"
+		ipset_list="via_vpn_domain"
+	}
+	[ -n "${WAN_DNS}" ] && [ ! "$2" = "via" ] && {
+		echo "server=/${domain_clean}/${WAN_DNS}" >>/tmp/dnsmasq.d/${dns_conf}
+	}
+	[ -n "${VPN_DNS}" ] && [ "$2" = "via" ] && {
+		echo "server=/${domain_clean}/${VPN_DNS}" >>/tmp/dnsmasq.d/${dns_conf}
+	}
+	echo "ipset=/${domain_clean}/${ipset_list}" >>/tmp/dnsmasq.d/${dns_conf}
+}
+
+
+set_mac_policy()
+{
+	local default_policy
+	local mac_list
+
+	config_load vpnpolicy
+	config_get default_policy "mac" "default_policy"
+	config_get mac_list "mac" "mac"
+
+	if [ "${default_policy}" == "0" ]; then
+		for mac in ${mac_list}; do
+			ipset add via_vpn_mac ${mac}
+		done
+	else
+		for mac in ${mac_list}; do
+			ipset add bypass_vpn_mac ${mac}
+		done
+	fi
+	echo conntrack  >/tmp/dnsmasq.d/conntrack
+}
+
+set_domain_policy()
+{
+	local default_policy
+	local domain_list
+
+	config_load vpnpolicy
+	config_get default_policy "domain" "default_policy"
+	config_get domain_list "domain" "domain"
+
+	if [ "${default_policy}" == "0" ]; then
+		ip_list=$(echo "${domain_list}" | sed -e 's/\s*#.*$//' | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?\b')
+		for ip in ${ip_list}; do
+			ipset add via_vpn_domain "${ip}"
+		done
+		domain_list=$(echo "${domain_list}" | sed -e 's/\s*#.*$//' | grep -vE '\b([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?\b')
+		echo "${domain_list}" | while read domain; do
+			[ -n "${domain}" ] && set_domain_resolv "${domain}" "via"
+		done
+	else
+		ip_list=$(echo "${domain_list}" | sed -e 's/\s*#.*$//' | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?\b')
+		for ip in ${ip_list}; do
+			ipset add bypass_vpn_domain "${ip}"
+		done
+		domain_list=$(echo "${domain_list}" | sed -e 's/\s*#.*$//' | grep -vE '\b([0-9]{1,3}\.){3}[0-9]{1,3}(/[0-9]{1,2})?\b')
+		echo "${domain_list}" | while read domain; do
+			[ -n "${domain}" ] && set_domain_resolv "${domain}" "bypass"
+		done
+	fi
+	echo conntrack  >/tmp/dnsmasq.d/conntrack
+}
+
+set_vlan_firewall()
+{
+	local private="$(uci -q get vpnpolicy.vlan.private)"
+	local guest="$(uci -q get vpnpolicy.vlan.guest)"
+	while [ true ];do
+		[ ! -f /var/run/fw3.lock ] && break
+		sleep 1
+	done
+
+	iptables -w -t mangle -F ROUTE_POLICY
+	iptables -w -t nat -F ROUTE_POLICY
+
+	if [ "${private}" == "0" ];then
+			iptables -w -t mangle -I ROUTE_POLICY -i br-lan  -j MARK --set-mark 0x8000/0xc000
+			[ -n "$WAN_DNS" ] && {
+				iptables -w -t nat -A ROUTE_POLICY -i br-lan  -p tcp --dport 53  -j DNAT --to $WAN_DNS
+				iptables -w -t nat -A ROUTE_POLICY -i br-lan  -p udp --dport 53  -j DNAT --to $WAN_DNS
+			}
+			iptables -w -t mangle -A ROUTE_POLICY -i br-lan -j CONNMARK --save-mark --nfmask 0xc000 --ctmask 0xc000
+			echo conntrack  >/tmp/dnsmasq.d/conntrack		
+	fi
+	if [ "${guest}" == "0" ];then
+			iptables -w -t mangle -I ROUTE_POLICY -i br-guest  -j MARK --set-mark 0x8000/0xc000
+			[ -n "$WAN_DNS" ] && {
+				iptables -w -t nat -A ROUTE_POLICY -i br-guest  -p tcp --dport 53  -j DNAT --to $WAN_DNS
+				iptables -w -t nat -A ROUTE_POLICY -i br-guest  -p udp --dport 53  -j DNAT --to $WAN_DNS
+			}
+			iptables -w -t mangle -A ROUTE_POLICY -i br-guest -j CONNMARK --save-mark --nfmask 0xc000 --ctmask 0xc000
+			echo conntrack  >/tmp/dnsmasq.d/conntrack
+	fi
+}
+
+[ "$INCLUDE_ONLY" = "1" ] || {
+ case "$1" in
+	"1")
+		make_ipset
+		handle_dns
+		make_firewall
+	;;
+	"2")
+		flush_ipset
+		#destroy_ipset
+		delete_firewall
+		clean_dnsmasq_settings
+		apply_dnsmasq_settings
+		flush_nf_conntrack
+	;;
+	"3")
+		delete_firewall
+		handle_dns
+		make_firewall
+		flush_ipset
+		clean_dnsmasq_settings
+		set_domain_policy
+		reload_domain_firewall
+		apply_dnsmasq_settings
+		flush_nf_conntrack
+	;;
+	"4")
+		delete_firewall
+		handle_dns
+		make_firewall
+		flush_ipset
+		clean_dnsmasq_settings
+		set_mac_policy
+		reload_mac_firewall
+		apply_dnsmasq_settings
+		flush_nf_conntrack
+	;;
+	"5")
+		delete_firewall
+		handle_dns
+		make_firewall
+		flush_ipset
+		clean_dnsmasq_settings
+		set_vlan_firewall
+		apply_dnsmasq_settings
+		flush_nf_conntrack
+	;;
+	"update")
+		killswitch_update
+	;;
+	*)
+  esac
+}
+flock -u 512
+rm -f $LOCKFILE

@@ -1,0 +1,10 @@
+Package: gl-sdk4-cloud
+Version: git-2024.144.04604-fe15610-1
+Depends: libc, lua-eco-mqtt, lua-eco-log, lua-eco-ubus, lua-eco-http, lua-eco-ubus, gl-sdk4-utils, libubox20220515, libopenssl1.1, libuci-lua53, lua-cjson-lua5.3
+Source: feeds/glinet/gl-sdk4-cloud
+SourceName: gl-sdk4-cloud
+Section: base
+SourceDateEpoch: 1716427004
+Architecture: mipsel_24kc
+Installed-Size: 19891
+Description:  GL sdk4 cloud

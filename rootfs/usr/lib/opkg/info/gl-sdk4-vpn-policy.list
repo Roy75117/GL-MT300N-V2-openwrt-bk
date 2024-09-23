@@ -1,0 +1,13 @@
+/etc/udhcpc.user.d/vpn_dns.sh
+/etc/firewall.swap_wan_in_conn_mark.sh
+/usr/bin/route_policy
+/etc/firewall.vpn_server_policy.sh
+/etc/firewall.in_conn_mark.nft
+/usr/bin/apply_killswitch
+/etc/config/vpnpolicy
+/usr/lib/oui-httpd/rpc/vpn-policy
+/etc/uci-defaults/99-vpnpolicy
+/etc/init.d/vpnpolicy
+/etc/hotplug.d/iface/21-vpnpolicy
+/usr/bin/call_service_action
+/etc/init.d/vpnpolicy-apply

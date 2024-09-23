@@ -1,0 +1,4 @@
+/etc/modules.d/01-gl-sdk4-hw-info
+/etc/modules-boot.d/01-gl-sdk4-hw-info
+/lib/modules/5.10.176/gl-sdk4-hw-info.ko
+/etc/uci-defaults/00-gl-hw-env

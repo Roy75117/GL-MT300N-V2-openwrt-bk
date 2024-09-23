@@ -1,0 +1,368 @@
+#!/usr/bin/lua
+
+--[[
+username=root
+password=1
+
+resp=$(ubus call gl-session challenge "{\"username\":\"$username\"}")
+
+echo "challenge:"
+echo "$resp"
+
+code=$(jsonfilter -s "$resp" -e '@.code')
+[ "$code" = "0" ] || exit
+
+alg=$(jsonfilter -s "$resp" -e '@.data.alg')
+salt=$(jsonfilter -s "$resp" -e '@.data.salt')
+nonce=$(jsonfilter -s "$resp" -e '@.data.nonce')
+
+pw=$(openssl passwd -$alg -salt "$salt" "$password")
+
+hash=$(echo -n "$username:$pw:$nonce" | md5sum | cut -d' ' -f1)
+
+echo "password: $password"
+echo "alg: $alg"
+echo "salt: $salt"
+echo "nonce: $nonce"
+echo "pw: $pw"
+echo "hash: $hash"
+
+echo "login:"
+ubus call gl-session login "{\"username\":\"$username\",\"hash\":\"$hash\"}"
+--]]
+
+local uloop = require "uloop"
+local ubus = require "ubus"
+local uci = require "uci"
+local log = require "glog"
+local rpc = require "oui.rpc"
+local utils = require "oui.utils"
+local fs = require "oui.fs"
+local db = require "oui.db"
+
+local MAX_SESSION = 5
+
+local login_wait = 0
+local login_fail = 0
+local login_fail_max_cnt
+local login_fail_wait_time
+local session_timeout
+
+local nonce_cnt = 0
+local nonces = {}
+
+local session_cnt = 0
+local sessions = {}
+
+log.level(log.LOG_INFO)
+
+uloop.init()
+
+local function clean_gl_token()
+    for name in fs.dir("/tmp") do
+        local sid = name:match("gl_token_(.+)")
+        if sid and not sessions[sid] then
+            os.remove("/tmp/" .. name)
+        end
+    end
+end
+
+local function init()
+    local c = uci.cursor()
+    login_fail_max_cnt = tonumber(c:get("oui-httpd", "main", "max_login_fail") or 10)
+    login_fail_wait_time = tonumber(c:get("oui-httpd", "main", "login_fail_wait") or 600)
+    session_timeout = tonumber(c:get("oui-httpd", "main", "session_timeout") or 300)
+    c:close()
+
+    math.randomseed(os.time())
+
+    clean_gl_token()
+
+    math.randomseed(os.time())
+end
+
+local ubus_conn = ubus.connect()
+
+local function time_now()
+    local t = utils.readfile("/proc/uptime", "n")
+    return math.floor(t)
+end
+
+local function get_crypt_info(username)
+    if not username or not username:match('^[a-z][-a-z0-9_]*$') then return nil end
+
+    for l in io.lines("/etc/shadow") do
+        local alg, salt = l:match('^' .. username .. ':%$(%d)%$(.+)%$')
+        if alg then
+            return tonumber(alg), salt
+        end
+    end
+
+    return nil
+end
+
+local function create_nonce(username)
+    if nonce_cnt > 5 then
+        log.err("The number of nonce too more")
+        return nil
+    end
+
+    local nonce = utils.generate_id(32)
+
+    if not nonces[username] then
+        nonces[username] = {}
+    end
+
+    nonces[username][nonce] = time_now() + 2
+
+    nonce_cnt = nonce_cnt + 1
+
+    return nonce
+end
+
+local function login_test(username, hash)
+    if not username or not username:match('^[a-z][-a-z0-9_]*$') then return false end
+
+    if not nonces[username] then
+        return false
+    end
+
+    for l in io.lines("/etc/shadow") do
+        local pw = l:match('^' .. username .. ':([^:]+)')
+        if pw then
+            for nonce in pairs(nonces[username]) do
+                if utils.md5(table.concat({username, pw, nonce}, ":")) == hash then
+                    nonces[username][nonce] = nil
+                    nonce_cnt = nonce_cnt - 1
+                    return true
+                end
+            end
+            return false
+        end
+    end
+
+    return false
+end
+
+local function create_session(username)
+    local aclgroup = db.get_acl_by_username(username)
+
+    local sid = utils.generate_id(32)
+
+    sessions[sid] = {
+        username = username,
+        aclgroup = aclgroup,
+        timeout = time_now() + session_timeout
+    }
+
+    session_cnt = session_cnt + 1
+
+    return sid
+end
+
+ubus_conn:add({
+    ["gl-session"] = {
+        status = {
+            function(req)
+                ubus_conn:reply(req, {
+                    nonce_cnt = nonce_cnt,
+                    session_cnt = session_cnt,
+                    nonces = nonces,
+                    sessions = sessions
+                })
+            end, {}
+        },
+        challenge = {
+            function(req, msg)
+                local username = msg.username
+
+                if type(username) ~= "string" then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_INVALID_PARAMS })
+                    return
+                end
+
+                if login_wait - time_now() > 0 then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_LOGIN_FAIL_OVER_LIMIT, data = { wait = login_wait - time_now() } })
+                    return
+                end
+
+                local alg, salt = get_crypt_info(username)
+                if not alg then
+                    login_fail = login_fail + 1
+
+                    if login_fail == login_fail_max_cnt then
+                        login_fail = 0
+                        login_wait = time_now() + login_fail_wait_time
+                    end
+
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_ACCESS })
+                    return
+                end
+
+                local nonce = create_nonce(username)
+                if not nonce then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_ACCESS })
+                    return
+                end
+
+                ubus_conn:reply(req, {
+                    code = 0,
+                    data = {
+                        nonce = nonce,
+                        alg = alg,
+                        salt = salt
+                    }
+                })
+            end, { username = ubus.STRING }
+        },
+        login = {
+            function(req, msg)
+                local username, hash = msg.username, msg.hash
+
+                clean_gl_token()
+
+                if type(username) ~= "string" or type(hash) ~= "string" then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_INVALID_PARAMS })
+                    return
+                end
+
+                if login_wait - time_now() > 0 then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_LOGIN_FAIL_OVER_LIMIT, data = { wait = login_wait - time_now() } })
+                    return
+                end
+
+                if not login_test(username, hash) then
+                    login_fail = login_fail + 1
+
+                    if login_fail == login_fail_max_cnt then
+                        login_fail = 0
+                        login_wait = time_now() + login_fail_wait_time
+                    end
+
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_ACCESS })
+                    return
+                end
+
+                login_fail = 0
+
+                if session_cnt == MAX_SESSION then
+                    log.err("session more than ", MAX_SESSION, ", clean the last inactive")
+
+                    local li_sid
+
+                    for sid, s in pairs(sessions) do
+                        if not li_sid then
+                            li_sid = sid
+                        elseif s.timeout < sessions[li_sid].timeout then
+                            li_sid = sid
+                        end
+                    end
+
+                    sessions[li_sid] = nil
+                    session_cnt = session_cnt - 1
+
+                    clean_gl_token()
+                end
+
+                local sid = create_session(username)
+
+                utils.update_ngx_session("/tmp/gl_token_" .. sid)
+
+                ubus_conn:reply(req, {
+                    code = 0,
+                    data = {
+                        username = username,
+                        sid = sid
+                    }
+                })
+            end, { username = ubus.STRING, hash = ubus.STRING }
+        },
+        logout = {
+            function(req, msg)
+                local sid = msg.sid
+
+                if type(sid) ~= "string" then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_INVALID_PARAMS })
+                    return
+                end
+
+                sessions[sid] = nil
+                session_cnt = session_cnt - 1
+
+                clean_gl_token()
+
+                ubus_conn:reply(req, {})
+            end, { sid = ubus.STRING }
+        },
+        touch = {
+            function(req, msg)
+                local sid = msg.sid
+
+                if type(sid) ~= "string" then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_INVALID_PARAMS })
+                    return
+                end
+
+                local session = sessions[sid]
+
+                if not session then
+                    ubus_conn:reply(req, { code = rpc.ERROR_CODE_ACCESS })
+                    return
+                end
+
+                session.timeout = time_now() + session_timeout
+
+                ubus_conn:reply(req, { code = 0 })
+            end, { sid = ubus.STRING }
+        },
+        session = {
+            function(req, msg)
+                local sid = msg.sid
+
+                if type(sid) ~= "string" then return end
+
+                local session = sessions[sid]
+
+                if not session then return end
+
+                session.timeout = time_now() + session_timeout
+                ubus_conn:reply(req, session)
+            end, { sid = ubus.STRING }
+        },
+	clear_session = {
+            function()
+               sessions = {}
+            end, {}
+        }
+    }
+})
+
+init()
+
+local tmr
+tmr = uloop.timer(function()
+    local now = time_now()
+
+    for _, info in pairs(nonces) do
+        for nonce, timeout in pairs(info) do
+            if now > timeout then
+                info[nonce] = nil
+                nonce_cnt = nonce_cnt - 1
+            end
+        end
+    end
+
+    for sid, session in pairs(sessions) do
+        if now > session.timeout then
+            sessions[sid] = nil
+            session_cnt = session_cnt - 1
+            os.remove("/tmp/gl_token_" .. sid)
+        end
+    end
+
+    tmr:set(1000)
+end)
+
+tmr:set(1)
+
+uloop.run()
