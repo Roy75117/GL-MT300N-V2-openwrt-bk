@@ -3,13 +3,17 @@
 ### This is the backup repo for openwrt([23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)) of GL.iNet GL-MT300N V2
 https://openwrt.org/toh/gl.inet/gl-mt300n_v2
 
-GL-MT300N-V2 is a mobile router based on MediaTek MT7628NN with 128MB dram, 16MB flash memory.
+GL-MT300N-V2 is a mini router based on MediaTek MT7628NN with 128MB dram, 16MB flash memory.
 
 GL-MT300N-V2 has 1 USB 2.0 port which can used for exroot, 1 switch button, 1 reset button and 3 LEDS.
 
 GL-MT300N-V2 supports WLAN 2.4GHz(b/g/n) and is powered by micro USB
 
-#### 1. Replace [OEM stock firmware](https://dl.gl-inet.com/router/mt300n-v2/) with [openwrt 23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)
+Current latest offical firmware is [**4.3.18**](https://dl.gl-inet.com/router/mt300n-v2/) which is based on [OpenWrt 22.03.4](https://openwrt.org/releases/22.03/notes-22.03.4)
+
+Official sotck firmware [**4.3.18**](./openwrt-mt300n-v2-4.3.18-0823-1724399860.stock.bin) is also backup in the repository just in case.
+
+#### 1. Replace OEM stock firmware with [openwrt 23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)
 
 Due to extroot with external storage, we need to add following pkg into the openwrt firmware.
 1. block-mount
@@ -173,7 +177,9 @@ crontab -e
 ```
 > 0 */2 * * * /etc/freememory.sh
 
-Or just restore with list-installed.txt. (just check the txt file for what will be installed)
+**list-installed.txt** is the backup pkg list based on sotck firmware 4.3.18 (please check the txt file for what will be installed)
+
+It is based on stock firmware 4.3.18. Please take care about it, if you want to use following guide to restore packages.
 
 on PC :
 ```shell
