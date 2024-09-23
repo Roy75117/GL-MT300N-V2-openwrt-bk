@@ -1,0 +1,15 @@
+
+config samba
+	option workgroup 'WORKGROUP'
+	option charset 'UTF-8'
+	option description 'Samba on OpenWRT'
+	option macos '1'
+	#option enable_extra_tuning '0'
+
+config sambashare
+	option name 'share'
+	option path '/root/share/'
+	option read_only 'no'
+	option guest_ok 'yes'
+	option create_mask '0666'
+	option dir_mask '0777'

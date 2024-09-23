@@ -155,20 +155,20 @@ Please make sure GL-MT300N-V2 connect to internet and you can ssh into the devic
 
 If success, you will see the wifi signal as below.
 
-The SSID is **GL-MT300M-V2-xxx** , connection password is **goodlife** , local hostname is **gl-mt300m-v2**
+The SSID is **GL-MT300N-V2-xxx** , connection password is **goodlife** , local hostname is **gl-MT300N-v2**
 
-unplug LAN cable and connect to GL-MT300M-V2 via wifi.
+unplug LAN cable and connect to GL-MT300N-V2 via wifi.
 
-#### 4. Install backup pkg (in GL-MT300M-V2)
+#### 4. Install backup pkg (in GL-MT300N-V2)
 
-login to GL-MT300M-V2 on PC :
+login to GL-MT300N-V2 on PC :
 
 on PC :
 ```shell
 ssh root@192.168.8.1
 ```
 
-on GL-MT300M-V2(192.168.8.1) :
+on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install fuse-utils glib2 dropbearconvert usbutils bzip2 rename rsync tree unrar whereis nano lsof htop perl bc
@@ -186,7 +186,7 @@ on PC :
 scp ./rootfs/list-installed.txt root@192.168.8.1:/tmp
 ```
 
-on GL-MT300M-V2(192.168.8.1) :
+on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 cat /tmp/list-installed.txt | xargs opkg install
@@ -195,19 +195,103 @@ cat /tmp/list-installed.txt | xargs opkg install
 **bk_pkg_list.sh** is the script to back up your opkg installed list.
 
 
-#### 5. <TBD>
+#### 5. Install avahi daemon
 
-avahi-dbus-daemon avahi-utils
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install avahi-dbus-daemon avahi-utils
+```
+The local domain is **gl-mt300m-v2.local**.
 
-ttyd luci-app-ttyd
+#### 6. Install avahi daemon
 
-samba4-server luci-app-samba4
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install aria2 luci-app-aria2 ariang-nginx
+mkdir -p /root/share/downloads
+chmod 777 -R /root/share/downloads
+```
 
-minidlna luci-app-minidlna 
+on PC :
+```shell
+scp ./rootfs/etc/config/aria2 root@192.168.8.1:/etc/config/
+```
+
+The default download folder is ___/root/share/downloads___
+
+Remote site is http://192.168.8.1/ariang/index.html
+
+#### 7. Install simple adblock
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install simple-adblock luci-app-simple-adblock
+uci set simple-adblock.config.enabled='1'
+uci commit simple-adblock
+```
+
+on PC :
+```shell
+scp ./rootfs/etc/config/simple-adblock root@192.168.8.1:/etc/config/
+```
+
+#### 8. Install ttyd
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install ttyd luci-app-ttyd
+```
+
+on PC :
+```shell
+scp ./rootfs/etc/config/ttyd root@192.168.8.1:/etc/config/
+```
+
+The ttyd port is ___800___ and only available under ___192.168.8.*___
+
+#### 9. Install minidlna
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install minidlna luci-app-minidlna 
+```
+
+on PC :
+```shell
+scp ./rootfs/etc/config/minidlna root@192.168.8.1:/etc/config/
+```
+
+The media scan path is set as /root/share.
+
+#### 10. Install convenient luci app
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install luci-app-acl luci-app-commands
+```
+
+#### 11. Install samba
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install samba4-server luci-app-samba4
+```
+
+on PC :
+```shell
+scp ./rootfs/etc/config/samba4 root@192.168.8.1:/etc/config/
+```
+
+The share folder is set as /root/share and guest ok.
 
 sshtunnel 
-
-luci-app-acl luci-app-commands
 
 polipo luci-app-polipo
 
