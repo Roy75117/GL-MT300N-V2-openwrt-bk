@@ -276,7 +276,26 @@ opkg update
 opkg install luci-app-acl luci-app-commands
 ```
 
-#### 11. Install samba
+#### 11. Install polipo
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install polipo luci-app-polipo
+```
+
+on PC :
+```shell
+scp ./rootfs/etc/config/polipo root@192.168.8.1:/etc/config/
+```
+
+http proxy port is 4321. http proxy is based on socket5 proxy which provied by sshtunnel.
+
+Assign http proxy as ___http://192.168.8.1:4321___ on client side.
+
+reference : https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/
+
+#### 12. Install samba
 
 on GL-MT300N-V2(192.168.8.1) :
 ```shell
@@ -289,7 +308,7 @@ on PC :
 scp ./rootfs/etc/config/samba4 root@192.168.8.1:/etc/config/
 ```
 
-#### 12. Install alist
+#### 13. Install alist
 
 on GL-MT300N-V2(192.168.8.1) :
 ```shell
@@ -318,5 +337,3 @@ reference : https://github.com/sbwml/luci-app-alist/
 sshtunnel 
 
 polipo luci-app-polipo
-
-alist

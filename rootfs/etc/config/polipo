@@ -1,0 +1,19 @@
+
+config polipo 'daemon'
+	option daemonise '1'
+	option pidFile '/var/run/polipo.pid'
+
+config polipo 'general'
+	option enabled '1'
+	option proxyAddress '0.0.0.0'
+	option proxyPort '4321'
+	list allowedClients '192.168.10.0/24'
+	option chunkHighMark '1048576'
+	option socksParentProxy '192.168.10.1:1234'
+	option socksProxyType 'socks5'
+	option dnsQueryIPv6 'happily'
+	option dnsUseGethostbyname 'reluctantly'
+
+config polipo 'cache'
+
+config polipo 'pmm'
