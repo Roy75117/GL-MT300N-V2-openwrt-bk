@@ -276,7 +276,50 @@ opkg update
 opkg install luci-app-acl luci-app-commands
 ```
 
-#### 11. Install polipo
+#### 11. Install sshtunnel client
+
+on GL-MT300N-V2(192.168.8.1) :
+```shell
+opkg update
+opkg install sshtunnel 
+```
+```shell
+cd ~
+mkdir .ssh
+chmod 700 .ssh/
+dropbearkey -t rsa -f /root/.ssh/id_dropbear
+```
+That last command will print the public key to the console, which we can copy and paste into a file:
+```shell
+vi ~/.ssh/id_rsa.pub
+```
+The same public key can also be copied into ~/.ssh/authorized_keys on ssh server we want to connect to.
+```shell
+scp -p [port] ~/.ssh/id_rsa.pub [account]@[my.ssh.server]:~/.ssh/authorized_keys
+```
+The Dropbear key needs to be converted, after installing the tool to do that:
+```shell
+dropbearconvert dropbear openssh ~/.ssh/id_dropbear ~/.ssh/id_rsa
+```
+Now you can log to ssh server without input password.
+```shell
+ssh -p [port] [account]@[my.ssh.server]
+```
+
+Then to restore sshtunnel config
+on PC :
+```shell
+scp ./rootfs/etc/config/sshtunnel  root@192.168.8.1:/etc/config/
+```
+default is pios server, check config for more detail.
+
+proxy port is ___1234___.
+
+Assign socket v5 proxy as ___socket://192.68.8.1:1234___
+
+reference : https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/
+
+#### 12. Install polipo
 
 on GL-MT300N-V2(192.168.8.1) :
 ```shell
@@ -295,7 +338,7 @@ Assign http proxy as ___http://192.168.8.1:4321___ on client side.
 
 reference : https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/
 
-#### 12. Install samba
+#### 13. Install samba
 
 on GL-MT300N-V2(192.168.8.1) :
 ```shell
@@ -308,7 +351,7 @@ on PC :
 scp ./rootfs/etc/config/samba4 root@192.168.8.1:/etc/config/
 ```
 
-#### 13. Install alist
+#### 14. Install alist
 
 on GL-MT300N-V2(192.168.8.1) :
 ```shell
@@ -335,5 +378,3 @@ Go to Storage tab to setup monunt path first.
 reference : https://github.com/sbwml/luci-app-alist/
 
 sshtunnel 
-
-polipo luci-app-polipo
