@@ -376,5 +376,3 @@ the config file set access port as 8080 and lan access only. Access http://192.1
 Go to Storage tab to setup monunt path first.
 
 reference : https://github.com/sbwml/luci-app-alist/
-
-sshtunnel 
