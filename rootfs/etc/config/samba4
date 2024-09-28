@@ -2,7 +2,7 @@
 config samba
 	option workgroup 'WORKGROUP'
 	option charset 'UTF-8'
-	option description 'Samba on OpenWRT'
+	option description 'Samba on GL-MT300N-V2'
 	option macos '1'
 	#option enable_extra_tuning '0'
 
