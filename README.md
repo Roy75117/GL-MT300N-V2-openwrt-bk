@@ -202,7 +202,7 @@ on GL-MT300N-V2(192.168.8.1) :
 opkg update
 opkg install avahi-dbus-daemon avahi-utils
 ```
-The local domain is **gl-mt300m-v2.local**.
+The local domain is **gl-mt300n-v2.local**.
 
 #### 6. Install aria
 
