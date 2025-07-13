@@ -1,212 +1,171 @@
-# GL-MT300N-V2-openwrt-bk
+# GL-MT300N-V2 OpenWrt Backup
 
-### This is the backup repo for openwrt([23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)) of GL.iNet GL-MT300N V2
-https://openwrt.org/toh/gl.inet/gl-mt300n_v2
+This repository serves as a backup for OpenWrt ([23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)) configuration and setup for the **GL.iNet GL-MT300N-V2** mini router. For detailed hardware specifications, refer to the [OpenWrt device page](https://openwrt.org/toh/gl.inet/gl-mt300n_v2).
 
-GL-MT300N-V2 is a mini router based on MediaTek MT7628NN with 128MB dram and 16MB flash memory.
+## Device Overview
+The GL-MT300N-V2 is a compact router powered by a MediaTek MT7628NN SoC, featuring:
+- **128 MB DRAM**
+- **16 MB Flash**
+- **1 USB 2.0 port** (supports extroot)
+- **1 switch button**, **1 reset button**, and **3 LEDs**
+- **Wi-Fi**: 2.4 GHz (b/g/n)
+- **Power**: Micro USB
 
-GL-MT300N-V2 has 1 USB 2.0 port which can used for exroot, 1 switch button, 1 reset button and 3 LEDS.
+The latest official firmware is [**4.3.18**](https://dl.gl-inet.com/router/mt300n-v2/), based on [OpenWrt 22.03.4](https://openwrt.org/releases/22.03/notes-22.03.4). A backup of the stock firmware ([openwrt-mt300n-v2-4.3.18-0823-1724399860.stock.bin](./openwrt-mt300n-v2-4.3.18-0823-1724399860.stock.bin)) is included in this repository.
 
-GL-MT300N-V2 supports WLAN 2.4GHz(b/g/n) and is powered by micro USB
+## 1. Upgrading to OpenWrt 23.05.4
+To support extroot with external storage, include the following packages in the firmware:
+- `block-mount`
+- `kmod-fs-f2fs`
+- `kmod-usb-storage`
+- `mkf2fs`
+- `f2fsck`
 
-Current latest offical firmware is [**4.3.18**](https://dl.gl-inet.com/router/mt300n-v2/) which is based on [OpenWrt 22.03.4](https://openwrt.org/releases/22.03/notes-22.03.4)
+### Steps to Upgrade
+1. Visit the [OpenWrt Firmware Selector](https://firmware-selector.openwrt.org/).
+2. Select **GL.iNet GL-MT300N-V2** and add the packages listed above under *Installed Packages*.
+3. Request a custom build.
+4. Download the prebuilt firmware:
+   - **Filename**: `openwrt-23.05.4-4c0b783b0436-ramips-mt76x8-glinet_gl-mt300n-v2-squashfs-sysupgrade.bin`
+   - **SHA256**: `bb736757a6369a8457dc19d727fae4a85199cb02813b356e33b532e5e24767a9`
+5. Flash the firmware via the GL.iNet web interface:
+   - Navigate to **Upgrade > Local Upgrade** or access LuCI:
+     - **Option 1**: Left sidebar > *More Settings > Advanced*
+     - **Option 2**: Click the *Advanced>>* link in the top-right corner.
+6. Upload the firmware and reboot the device.
 
-Official sotck firmware [**4.3.18**](./openwrt-mt300n-v2-4.3.18-0823-1724399860.stock.bin) is also backup in the repository just in case.
+## 2. Setting Up Extroot with USB Storage
+To expand storage using a USB drive, follow these steps:
 
-#### 1. Replace OEM stock firmware with [openwrt 23.05.4](https://openwrt.org/releases/23.05/notes-23.05.4)
+1. Connect a USB disk (recommended: >256 MB) to the GL-MT300N-V2.
+2. Power on the device and connect it to your PC via LAN cable.
+3. Set your PC's IP to `192.168.1.x` and SSH into the router:
+   ```shell
+   ssh root@192.168.1.1
+   ```
+4. Check block device information:
+   ```shell
+   block info
+   ```
+   Example output:
+   ```
+   /dev/mtdblock5: UUID="9fd43c61-c3f2c38f-13440ce7-53f0d42d" VERSION="4.0" MOUNT="/rom" TYPE="squashfs"
+   /dev/mtdblock6: MOUNT="/overlay" TYPE="jffs2"
+   /dev/sda1: UUID="fdacc9f1-0e0e-45ab-acee-9cb9cc8d7d49" VERSION="1.4" TYPE="ext4"
+   ```
+5. Mount the current filesystem to `/rwm`:
+   ```shell
+   DEVICE="$(sed -n -e "/\s\/overlay\s.*$/s///p" /etc/mtab)"
+   uci -q delete fstab.rwm
+   uci set fstab.rwm="mount"
+   uci set fstab.rwm.device="${DEVICE}"
+   uci set fstab.rwm.target="/rwm"
+   uci commit fstab
+   ```
+6. Format the USB disk as `f2fs`:
+   ```shell
+   mkfs.f2fs /dev/sda1
+   ```
+7. Configure the overlay filesystem on the USB disk:
+   ```shell
+   DEVICE="/dev/sda1"
+   eval $(block info ${DEVICE} | grep -o -e "UUID=\S*")
+   uci -q delete fstab.overlay
+   uci set fstab.overlay="mount"
+   uci set fstab.overlay.uuid="${UUID}"
+   uci set fstab.overlay.target="/overlay"
+   uci commit fstab
+   ```
+8. Copy the filesystem to the USB disk:
+   ```shell
+   DEVICE="/dev/sda1"
+   mkdir -p /tmp/cproot
+   mount --bind /overlay /tmp/cproot
+   mount ${DEVICE} /mnt
+   tar -C /tmp/cproot -cvf - . | tar -C /mnt -xf -
+   umount /tmp/cproot /mnt
+   ```
+9. Reboot the device:
+   ```shell
+   reboot
+   ```
+10. Verify the disk setup:
+    ```shell
+    df -h
+    ```
 
-Due to extroot with external storage, we need to add following pkg into the openwrt firmware.
-1. block-mount
-2. kmod-fs-f2fs
-3. kmod-usb-storage
-4. mkf2fs
-5. f2fsck
+**Reference**: [GL.iNet Forum](https://forum.gl-inet.cn/forum.php?extra=&mod=viewthread&tid=14)
 
-Access [OpenWrt Firmware Selector](https://firmware-selector.openwrt.org/) , input **GL.iNet GL-MT300N V2** , add **block-mount kmod-fs-f2fs kmod-usb-storage mkf2fs f2fsck** into _Installed Packages_, Then _request build_.
+## 3. Connecting to the Internet
+To connect the GL-MT300N-V2 to the internet, restore network configurations if available.
 
-[**openwrt-23.05.4-4c0b783b0436-ramips-mt76x8-glinet_gl-mt300n-v2-squashfs-sysupgrade.bin**](openwrt-23.05.4-4c0b783b0436-ramips-mt76x8-glinet_gl-mt300n-v2-squashfs-sysupgrade.bin) is the prebuilt firmware with the packages above insalled. 
-* filename : openwrt-23.05.4-4c0b783b0436-ramips-mt76x8-glinet_gl-mt300n-v2-squashfs-sysupgrade.bin
-* sha256sum: bb736757a6369a8457dc19d727fae4a85199cb02813b356e33b532e5e24767a9
+1. Backup existing configuration files:
+   ```shell
+   cp /etc/config/firewall /etc/config/firewall.bk
+   cp /etc/config/network /etc/config/network.bk
+   cp /etc/config/wireless /etc/config/wireless.bk
+   cp /etc/config/system /etc/config/system.bk
+   ```
+2. Restore configuration files from your PC:
+   ```shell
+   scp ./rootfs/etc/config/network root@192.168.1.1:/etc/config/
+   scp ./rootfs/etc/config/wireless root@192.168.1.1:/etc/config/
+   scp ./rootfs/etc/config/firewall root@192.168.1.1:/etc/config/
+   scp ./rootfs/etc/config/system root@192.168.1.1:/etc/config/
+   scp ./rootfs/etc/freememory.sh root@192.168.1.1:/etc/
+   scp ./profile root@192.168.1.1:~/.profile
+   reboot
+   ```
+3. Power down, connect the router to the internet via LAN, and power on.
+4. Verify connectivity and SSH access. The default Wi-Fi settings are:
+   - **SSID**: `GL-MT300N-V2-xxx`
+   - **Password**: `goodlife`
+   - **Hostname**: `gl-MT300N-v2`
+5. Disconnect the LAN cable and connect via Wi-Fi.
 
-You can just follow [Normal upgrade](https://openwrt.org/toh/gl.inet/installation#normal_upgrade) to sysupgrade the device firmware.
+## 4. Installing Backup Packages
+Install additional packages to enhance functionality.
 
-Access the GL.Inet web interface to re-flash your device using OpenWrt (Upgrade > Local Upgrade).
+1. SSH into the router (new IP: `192.168.8.1`):
+   ```shell
+   ssh root@192.168.8.1
+   ```
+2. Install essential packages:
+   ```shell
+   opkg update
+   opkg install fuse-utils glib2 dropbearconvert usbutils bzip2 rename rsync tree unrar whereis nano lsof htop perl bc
+   chmod +x /etc/freememory.sh
+   ```
+3. Schedule the `freememory.sh` script to run every 2 hours:
+   ```shell
+   crontab -e
+   ```
+   Add:
+   ```
+   0 */2 * * * /etc/freememory.sh
+   ```
+4. Restore the package list from stock firmware 4.3.18:
+   ```shell
+   scp ./rootfs/list-installed.txt root@192.168.8.1:/tmp
+   opkg update
+   cat /tmp/list-installed.txt | xargs opkg install
+   ```
+   **Note**: The `list-installed.txt` file is based on firmware 4.3.18. Verify compatibility before installation.
+5. Use `bk_pkg_list.sh` to back up the installed package list.
 
-You can also access LuCi (the normal OpenWrt web interface) and from there you can upload and install a new OpenWrt firmware as normal. Depending on the web interface version, you can access LuCi:
+## 5. Installing Avahi Daemon
+Enable mDNS for local network discovery.
 
-1. In the left sidebar: More Settings > Advanced
-2. By clicking on the small grey “Advanced>>” link you find in the top right of the device's web interface.
-
-Once upgraded, reboot GL-MT300N-V2.
-
-#### 2. Extroot with external USB storage
-1. Prepare a USB disk(better larger than 256MB) and connect with GL-MT300N-V2
-2. power on GL-MT300N-V2 and connect it to your PC with LAN Cable.
-3. Set PC ip as 192.168.1.x and connect GL-MT300N-V2 with ssh
-
-on PC :
-```shell
-ssh root@192.168.1.1
-```
-
-4. Check block information. (foud out USB device -> /dev/sdax)
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-block info
-```
->     /dev/mtdblock5: UUID="9fd43c61-c3f2c38f-13440ce7-53f0d42d" VERSION="4.0" MOUNT="/rom" TYPE="squashfs"
->     /dev/mtdblock6: MOUNT="/overlay" TYPE="jffs2"
->     /dev/sda1: UUID="fdacc9f1-0e0e-45ab-acee-9cb9cc8d7d49" VERSION="1.4" TYPE="ext4"
-
-5. Edit fstab to mount current filsystem on /rwm
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-DEVICE="$(sed -n -e "/\s\/overlay\s.*$/s///p" /etc/mtab)"
-uci -q delete fstab.rwm
-uci set fstab.rwm="mount"
-uci set fstab.rwm.device="${DEVICE}"
-uci set fstab.rwm.target="/rwm"
-uci commit fstab
-```
-
-6. Format USB disk as f2fs.
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-mkfs.f2fs /dev/sda1
-```
-
-7. Edit fstab to overlay filesystem on external storage
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-DEVICE="/dev/sda1"
-eval $(block info ${DEVICE} | grep -o -e "UUID=\S*")
-uci -q delete fstab.overlay
-uci set fstab.overlay="mount"
-uci set fstab.overlay.uuid="${UUID}"
-uci set fstab.overlay.target="/overlay"
-uci commit fstab
-```
-
-8. Copy filesystem to USB disk(/dev/sda1)
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-DEVICE="/dev/sda1"
-mkdir -p /tmp/cproot
-mount --bind /overlay /tmp/cproot
-mount ${DEVICE} /mnt
-tar -C /tmp/cproot -cvf - . | tar -C /mnt -xf -        
-umount /tmp/cproot /mnt
-```
-
-9. Reboot GL-MT300N-V2
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-reboot
-```
-
-10. Check disk information
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-df -h
-```
-
-___reference___ : https://forum.gl-inet.cn/forum.php?extra=&mod=viewthread&tid=14
-
-#### 3. Connect GL-MT300N-V2 to internet
-
-Try to connect GL-MT300N-V2 to internet. If you have config backup for network, just restore them with scp.
-
-on PC :
-```shell
-ssh root@192.168.1.1
-```
-
-Before restore config files, backup original config files.
-
-on GL-MT300N-V2(192.168.1.1) :
-```shell
-cp /etc/config/firewall /etc/config/firewall.bk
-cp /etc/config/network /etc/config/network.bk
-cp /etc/config/wireless /etc/config/wireless.bk
-cp /etc/config/system /etc/config/system.bk
-```
-
-scp config files into raspberry pi to restore config files.
-
-on PC :
-```shell
-scp ./rootfs/etc/config/network root@192.168.1.1:/etc/config/
-scp ./rootfs/etc/config/wireless root@192.168.1.1:/etc/config/
-scp ./rootfs/etc/config/firewall root@192.168.1.1:/etc/config/
-scp ./rootfs/etc/config/system root@192.168.1.1:/etc/config/
-scp ./rootfs/etc/freememory.sh root@192.168.1.1:/etc/
-scp ./profile root@192.168.1.1:~/.profile
-reboot
-```
-
-Power down GL-MT300N-V2 and connect GL-MT300N-V2 to internet with LAN cable then power on.
-Please make sure GL-MT300N-V2 connect to internet and you can ssh into the device.
-
-If success, you will see the wifi signal as below.
-
-The SSID is **GL-MT300N-V2-xxx** , connection password is **goodlife** , local hostname is **gl-MT300N-v2**
-
-unplug LAN cable and connect to GL-MT300N-V2 via wifi.
-
-#### 4. Install backup pkg (in GL-MT300N-V2)
-
-login to GL-MT300N-V2 on PC :
-
-on PC :
-```shell
-ssh root@192.168.8.1
-```
-
-on GL-MT300N-V2(192.168.8.1) :
-```shell
-opkg update
-opkg install fuse-utils glib2 dropbearconvert usbutils bzip2 rename rsync tree unrar whereis nano lsof htop perl bc
-chmod +x /etc/freememory.sh
-crontab -e
-```
-> 0 */2 * * * /etc/freememory.sh
-
-**list-installed.txt** is the backup pkg list based on sotck firmware 4.3.18 (please check the txt file for what will be installed)
-
-It is based on stock firmware 4.3.18. Please take care about it, if you want to use following guide to restore packages.
-
-on PC :
-```shell
-scp ./rootfs/list-installed.txt root@192.168.8.1:/tmp
-```
-
-on GL-MT300N-V2(192.168.8.1) :
-```shell
-opkg update
-cat /tmp/list-installed.txt | xargs opkg install
-```
-
-**bk_pkg_list.sh** is the script to back up your opkg installed list.
-
-
-#### 5. Install avahi daemon
-
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install avahi-dbus-daemon avahi-utils
 ```
-The local domain is **gl-mt300n-v2.local**.
 
-#### 6. Install aria
+**Local Domain**: `gl-mt300n-v2.local`
 
-on GL-MT300N-V2(192.168.8.1) :
+## 6. Installing Aria2
+Set up a download manager with a web interface.
+
 ```shell
 opkg update
 opkg install aria2 luci-app-aria2 ariang-nginx
@@ -214,18 +173,17 @@ mkdir -p /root/share/downloads
 chmod 777 -R /root/share/downloads
 ```
 
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/aria2 root@192.168.8.1:/etc/config/
 ```
 
-The default download folder is ___/root/share/downloads___
+- **Download Folder**: `/root/share/downloads`
+- **Web Interface**: `http://192.168.8.1/ariang/index.html`
 
-Remote site is http://192.168.8.1/ariang/index.html
+## 7. Installing Simple Adblock
+Block ads on the network.
 
-#### 7. Install simple adblock
-
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install simple-adblock luci-app-simple-adblock
@@ -233,146 +191,129 @@ uci set simple-adblock.config.enabled='1'
 uci commit simple-adblock
 ```
 
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/simple-adblock root@192.168.8.1:/etc/config/
 ```
 
-#### 8. Install ttyd
+## 8. Installing ttyd
+Enable a web-based terminal.
 
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install ttyd luci-app-ttyd
 ```
 
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/ttyd root@192.168.8.1:/etc/config/
 ```
 
-The ttyd port is ___800___ and only available under ___192.168.8.*___
+- **Port**: `800` (accessible only on `192.168.8.*`)
 
-#### 9. Install minidlna
+## 9. Installing MiniDLNA
+Set up a media server.
 
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
-opkg install minidlna luci-app-minidlna 
+opkg install minidlna luci-app-minidlna
 ```
 
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/minidlna root@192.168.8.1:/etc/config/
 ```
 
-The media scan path is set as /root/share.
+- **Media Scan Path**: `/root/share`
 
-#### 10. Install convenient luci app
+## 10. Installing Convenient LuCI Apps
+Enhance the LuCI interface.
 
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install luci-app-acl luci-app-commands
 ```
 
-#### 11. Install sshtunnel client
+## 11. Installing SSH Tunnel Client
+Set up an SSH tunnel for secure connections.
 
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
-opkg install sshtunnel 
-```
-```shell
+opkg install sshtunnel
 cd ~
 mkdir .ssh
 chmod 700 .ssh/
 dropbearkey -t rsa -f /root/.ssh/id_dropbear
 ```
-That last command will print the public key to the console, which we can copy and paste into a file:
+
+Copy the public key to the SSH server:
 ```shell
 vi ~/.ssh/id_rsa.pub
-```
-The same public key can also be copied into ~/.ssh/authorized_keys on ssh server we want to connect to.
-```shell
 scp -p [port] ~/.ssh/id_rsa.pub [account]@[my.ssh.server]:~/.ssh/authorized_keys
 ```
-The Dropbear key needs to be converted, after installing the tool to do that:
+
+Convert the Dropbear key:
 ```shell
 dropbearconvert dropbear openssh ~/.ssh/id_dropbear ~/.ssh/id_rsa
 ```
-Now you can log to ssh server without input password.
+
+Restore configuration:
 ```shell
-ssh -p [port] [account]@[my.ssh.server]
+scp ./rootfs/etc/config/sshtunnel root@192.168.8.1:/etc/config/
 ```
 
-Then to restore sshtunnel config
-on PC :
-```shell
-scp ./rootfs/etc/config/sshtunnel  root@192.168.8.1:/etc/config/
-```
-default is pios server, check config for more detail.
+- **Proxy Port**: `1234`
+- **SOCKS v5 Proxy**: `socket://192.168.8.1:1234`
+- **Reference**: [SOCKS Proxy Setup](https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/)
 
-proxy port is ___1234___.
+## 12. Installing Polipo
+Set up an HTTP proxy based on the SOCKS proxy.
 
-Assign socket v5 proxy as ___socket://192.68.8.1:1234___
-
-reference : https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/
-
-#### 12. Install polipo
-
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install polipo luci-app-polipo
 ```
 
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/polipo root@192.168.8.1:/etc/config/
 ```
 
-http proxy port is 4321. http proxy is based on socket5 proxy which provied by sshtunnel.
+- **HTTP Proxy Port**: `4321`
+- **HTTP Proxy**: `http://192.168.8.1:4321`
+- **Reference**: [SOCKS Proxy Setup](https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/)
 
-Assign http proxy as ___http://192.168.8.1:4321___ on client side.
+## 13. Installing Samba
+Enable file sharing.
 
-reference : https://blog.thestateofme.com/2022/10/26/socks-proxy-ssh-tunnels-on-openwrt/
-
-#### 13. Install samba
-
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 opkg update
 opkg install samba4-server luci-app-samba4
 ```
 
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/samba4 root@192.168.8.1:/etc/config/
 ```
 
-#### 14. Install alist
+## 14. Installing Alist
+Set up a file-sharing service.
 
-on GL-MT300N-V2(192.168.8.1) :
 ```shell
 sh -c "$(curl -ksS https://raw.githubusercontent.com/sbwml/luci-app-alist/master/install.sh)"
 ```
 
-This script will detect your prefered language, locale and CPU architechture, then install the following ipks.
+This installs:
+- `alist*.ipk`
+- `luci-app-alist*.ipk`
+- `luci-i18n*.ipk`
 
-It will take about 40~50MB storage for installation.
-
-1. alist*.ipk
-2. luci-app-alist*.ipk
-3. luci-i18n*.ipk
-
-on PC :
+Restore configuration:
 ```shell
 scp ./rootfs/etc/config/alist root@192.168.8.1:/etc/config
 ```
 
-the config file set access port as 8080 and lan access only. Access http://192.168.8.1:8080 for alist.
-
-Go to Storage tab to setup monunt path first.
-
-reference : https://github.com/sbwml/luci-app-alist/
+- **Access Port**: `8080` (LAN access only)
+- **Web Interface**: `http://192.168.8.1:8080`
+- **Setup**: Configure the storage mount path in the *Storage* tab.
+- **Reference**: [Alist GitHub](https://github.com/sbwml/luci-app-alist/)
